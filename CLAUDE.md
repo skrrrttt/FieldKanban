@@ -776,3 +776,64 @@ Differentiators:
 - Prefer server components; use client components only when interactivity needed
 - All data operations go through the repository abstraction
 - Queue offline changes for sync; use optimistic updates in UI
+
+### Git Workflow & Branching Strategy
+
+**Branch Structure:**
+```
+main (production) ← Vercel deploys to production URL
+  └── develop (staging) ← Integration branch, Vercel preview
+        ├── feature/auth-flow
+        ├── feature/offline-sync
+        └── fix/task-drag-bug
+```
+
+**Rules:**
+1. **Never commit directly to `main`** - all changes go through PRs
+2. **Feature branches** branch off `develop`, merge back to `develop`
+3. **Hotfixes** can branch from `main` if critical, but prefer `develop`
+4. **`develop` → `main`** merges happen for releases
+
+**Workflow:**
+```bash
+# Start new feature
+git checkout develop
+git pull origin develop
+git checkout -b feature/my-feature
+
+# Work on feature
+# ... make changes, commit ...
+git push -u origin feature/my-feature
+
+# Create PR to develop (Vercel auto-deploys preview)
+gh pr create --base develop --title "Add my feature"
+
+# After PR review & merge to develop, delete feature branch
+git checkout develop
+git pull origin develop
+git branch -d feature/my-feature
+```
+
+**Vercel Preview Deployments:**
+- Every push to a non-main branch triggers a preview deployment
+- Preview URLs auto-posted as PR comments
+- Format: `https://fieldkanban-git-{branch}-{username}.vercel.app`
+
+**Branch Naming Conventions:**
+- `feature/` - New features (e.g., `feature/offline-sync`)
+- `fix/` - Bug fixes (e.g., `fix/task-drag-not-working`)
+- `refactor/` - Code refactoring (e.g., `refactor/store-cleanup`)
+- `docs/` - Documentation only (e.g., `docs/api-readme`)
+
+**Commit Message Format:**
+```
+<type>: <short description>
+
+<optional body explaining why>
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+```
+
+Types: `Add`, `Update`, `Fix`, `Refactor`, `Remove`, `Test`, `Docs`
