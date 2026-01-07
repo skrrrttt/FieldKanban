@@ -877,3 +877,79 @@ Types: `Add`, `Update`, `Fix`, `Refactor`, `Remove`, `Test`, `Docs`
 - Supabase repository provider implementation
 - Replace mock provider with real Supabase data
 - Real-time subscriptions for task updates
+
+### January 7, 2026 - Vercel Deployment & Auth Fixes
+
+**Issues Fixed:**
+
+1. **Vercel Build Failure - useSearchParams Suspense**
+   - Error: `useSearchParams() should be wrapped in a suspense boundary`
+   - Next.js 15 requires `useSearchParams()` to be wrapped in `<Suspense>`
+   - Fixed in: `src/app/(auth)/login/page.tsx`, `src/app/(auth)/verify/page.tsx`
+   - Solution: Extracted form components and wrapped with `<Suspense fallback={...}>`
+
+2. **Middleware Crash - Missing Environment Variables**
+   - Error: `500: MIDDLEWARE_INVOCATION_FAILED`
+   - Middleware crashed when Supabase env vars weren't set in Vercel
+   - Fixed in: `src/middleware.ts`
+   - Solution: Added check for env vars, allow requests through if missing (auth disabled)
+
+3. **Infinite Loading on Login**
+   - Login form would load forever if Supabase request failed
+   - Fixed in: `src/app/(auth)/login/page.tsx`, `src/lib/supabase/client.ts`
+   - Solution: Added try-catch with 15-second timeout, clear error messages
+
+4. **Database Error Saving New User**
+   - Error: `type "user_role" does not exist (SQLSTATE 42704)`
+   - Trigger function couldn't find the `user_role` enum type
+   - Fixed via Supabase migration: `fix_handle_new_user_trigger`
+   - Solution: Use fully qualified type `public.user_role` and set `search_path = public`
+
+5. **Missing RLS INSERT Policy**
+   - Profiles table had no INSERT policy for the trigger
+   - Fixed via Supabase migration: `fix_profiles_insert_policy`
+   - Solution: Added INSERT policies for `service_role` and `authenticated` users
+
+**Database Migrations Applied:**
+```sql
+-- fix_profiles_insert_policy
+CREATE POLICY "Service role can insert profiles" ON profiles
+  FOR INSERT TO service_role WITH CHECK (true);
+CREATE POLICY "Users can insert own profile" ON profiles
+  FOR INSERT TO authenticated WITH CHECK (id = auth.uid());
+
+-- fix_handle_new_user_trigger
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+    INSERT INTO public.profiles (id, email, name, role)
+    VALUES (
+        NEW.id, NEW.email,
+        COALESCE(NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1)),
+        'field'::public.user_role
+    );
+    RETURN NEW;
+END;
+$$;
+```
+
+**Supabase Configuration Required:**
+- **Site URL**: Set to your primary domain (e.g., `https://fieldkanban.vercel.app` or `http://localhost:3000`)
+- **Redirect URLs** (Authentication → URL Configuration):
+  - `http://localhost:3000/auth/callback`
+  - `https://fieldkanban.vercel.app/auth/callback`
+  - `https://*.vercel.app/auth/callback` (for preview deployments)
+
+**Vercel Environment Variables Required:**
+- `NEXT_PUBLIC_SUPABASE_URL` - Your Supabase project URL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Your Supabase anon/public key
+
+**Files Changed:**
+- `src/app/(auth)/login/page.tsx` - Suspense boundary, try-catch, timeout
+- `src/app/(auth)/verify/page.tsx` - Suspense boundary
+- `src/middleware.ts` - Env var validation, graceful fallback
+- `src/lib/supabase/client.ts` - Env var validation with clear error
+
+**Status:** Magic link authentication working end-to-end
