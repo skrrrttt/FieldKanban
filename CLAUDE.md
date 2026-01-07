@@ -14,6 +14,27 @@ FieldKanban is a PWA Kanban app for field construction operations. Field users v
 - Photo upload from field devices
 - Push notifications for task updates
 
+## Target Use Case Context
+
+Primary user: **Pavement marking company** (but app remains generic for field construction)
+
+Understanding the real-world use case:
+- **Crews** work at job sites (parking lots, roads, intersections)
+- **Tasks** include layout, striping, stenciling, reflector installation
+- **Photos** document before/after of completed work
+- **Location** = addresses, lot names, mile markers
+- **Specs** = DOT standards, line widths, paint types
+- **Connectivity** often poor at remote job sites
+
+This context reinforces why these priorities matter:
+- **Offline-first** - critical for remote job sites with poor cell service
+- **Photo capture** - documenting completed work for billing/verification
+- **Mobile/tablet optimized** - devices used in trucks and field
+- **Simple status updates** - quick task completion marking from the field
+- **Durable touch targets** - usable with work gloves
+
+Keep the app generic ("field construction") but design decisions should consider this use case.
+
 ## Commands
 
 ```bash
