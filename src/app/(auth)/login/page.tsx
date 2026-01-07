@@ -49,7 +49,8 @@ function LoginForm() {
       const authPromise = supabase.auth.signInWithOtp({
         email: email.trim().toLowerCase(),
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          // Use client-side callback page for PKCE flow
+          emailRedirectTo: `${window.location.origin}/callback`,
         },
       });
 
