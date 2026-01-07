@@ -331,14 +331,15 @@ can_access_task(task_uuid)    -- Returns true if admin OR assigned to task's job
 - [x] Supabase client utilities (`src/lib/supabase/`)
 - [x] Environment configuration (`.env.example`)
 
-**Next (Phase 4b - Authentication):**
-- [ ] Login page with magic link form
-- [ ] Auth callback route handler
-- [ ] Middleware for protected routes
-- [ ] useAuth hook implementation
-- [ ] Logout functionality
+**Completed (Phase 4b - Authentication):**
+- [x] Login page with magic link form (`src/app/(auth)/login/page.tsx`)
+- [x] Verify page for email confirmation (`src/app/(auth)/verify/page.tsx`)
+- [x] Auth callback route handler (`src/app/auth/callback/route.ts`)
+- [x] Middleware for protected routes (`src/middleware.ts`)
+- [x] useAuth hook implementation (`src/lib/hooks/useAuth.ts`)
+- [x] Logout functionality wired to sidebar and header
 
-**Then (Phase 4c - Data Integration):**
+**Next (Phase 4c - Data Integration):**
 - [ ] Supabase repository provider
 - [ ] Replace mock provider usage
 - [ ] Real-time subscriptions

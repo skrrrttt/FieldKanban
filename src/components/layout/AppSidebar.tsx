@@ -33,6 +33,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ThemeToggleSimple } from "@/components/ui/theme-toggle";
 import { useAppStore } from "@/lib/store/app-store";
+import { useAuth } from "@/lib/hooks/useAuth";
 
 const mainNavItems = [
   {
@@ -58,6 +59,7 @@ const adminNavItems = [
 export function AppSidebar() {
   const pathname = usePathname();
   const currentUser = useAppStore((state) => state.currentUser);
+  const { signOut } = useAuth();
   const isAdmin = currentUser?.role === "admin";
 
   const getInitials = (name: string) => {
@@ -190,7 +192,10 @@ export function AppSidebar() {
                   <span>Account settings</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="gap-2 text-destructive">
+                <DropdownMenuItem
+                  className="gap-2 text-destructive cursor-pointer"
+                  onClick={signOut}
+                >
                   <LogOut className="size-4" />
                   <span>Log out</span>
                 </DropdownMenuItem>

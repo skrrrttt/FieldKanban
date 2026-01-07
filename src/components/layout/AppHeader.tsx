@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { HardHat, Wifi, WifiOff, RefreshCw, User } from "lucide-react";
+import { HardHat, WifiOff, RefreshCw } from "lucide-react";
 import { SidebarTrigger, useSidebar } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
@@ -17,7 +17,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useOffline } from "@/lib/hooks/useOffline";
 import { useAppStore } from "@/lib/store/app-store";
-import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/hooks/useAuth";
 
 interface AppHeaderProps {
   title?: string;
@@ -26,6 +26,7 @@ interface AppHeaderProps {
 export function AppHeader({ title }: AppHeaderProps) {
   const { isOnline, pendingOperations } = useOffline();
   const currentUser = useAppStore((state) => state.currentUser);
+  const { signOut } = useAuth();
   const { isMobile } = useSidebar();
 
   const getInitials = (name: string) => {
@@ -119,7 +120,10 @@ export function AppHeader({ title }: AppHeaderProps) {
                 <span className="ml-2">Theme</span>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="text-destructive">
+              <DropdownMenuItem
+                className="text-destructive cursor-pointer"
+                onClick={signOut}
+              >
                 Log out
               </DropdownMenuItem>
             </DropdownMenuContent>
