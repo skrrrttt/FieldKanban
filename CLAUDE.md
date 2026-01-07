@@ -275,6 +275,137 @@ Issues identified during architecture review that should be addressed before Pha
 - [ ] Add optimistic update pattern
 - [ ] Connect sync queue to all create/update/delete operations
 
+## Future Opportunities (Ideas for Later)
+
+Research-identified opportunities to consider for future development. Not in active roadmap.
+
+### Feature Ideas
+
+#### Time Tracking & GPS
+- [ ] GPS geofencing for auto clock-in/out at job sites
+- [ ] Time tracking per task (not just per job)
+- [ ] Timesheet export for payroll integration
+- [ ] Mileage tracking between job sites
+- [ ] Real-time crew location tracking
+
+#### Voice & Hands-Free
+- [ ] Voice-to-text for comments and notes (Web Speech API)
+- [ ] Voice commands for task status updates
+- [ ] Offline speech recognition (on-device)
+- [ ] Critical for gloved workers who can't type
+
+#### Daily Reports & Documentation
+- [ ] Daily log templates (weather, crew, equipment, work completed)
+- [ ] Before/after photo requirements per task
+- [ ] PDF report generation for clients
+- [ ] Automatic weather capture via API
+- [ ] Digital signature capture
+
+#### Checklists
+- [ ] Pre-job safety checklists
+- [ ] Quality control checklists
+- [ ] Completion verification checklists
+- [ ] ADA compliance checklists (parking lot requirements)
+- [ ] Traffic control setup checklists
+- [ ] Equipment inspection checklists
+- [ ] Custom checklist builder for admins
+
+#### Communication
+- [ ] Job-specific chat channels
+- [ ] @mentions for crew members
+- [ ] Auto-translation for multilingual crews
+- [ ] Attach photos/files to messages
+- [ ] Urgent message push notifications
+
+#### Equipment & Materials
+- [ ] Track material usage per job (paint, reflectors, etc.)
+- [ ] Equipment assignment to jobs/crews
+- [ ] Low inventory alerts
+- [ ] Material cost tracking for job profitability
+- [ ] Calculate paint needed based on linear feet
+
+### Industry-Specific (Pavement Marking)
+
+#### Measurements & Estimating
+- [ ] Store property measurements (stalls, linear feet, square footage)
+- [ ] Task types: line striping, stenciling, arrows, handicap symbols
+- [ ] Auto-calculate paint quantities from measurements
+- [ ] Unit-based pricing (per stall, per linear foot)
+
+#### Weather Awareness
+- [ ] Weather API integration
+- [ ] Surface temperature thresholds for paint application
+- [ ] Automatic weather conditions in reports
+- [ ] Reschedule suggestions for bad weather
+- [ ] Night work scheduling support
+
+#### Compliance
+- [ ] ADA parking compliance verification
+- [ ] Sign height verification (60" minimum)
+- [ ] Proper symbol dimension checks
+- [ ] Access aisle width verification
+- [ ] Compliance photo documentation
+- [ ] Generate compliance reports
+
+#### Safety
+- [ ] Traffic control documentation
+- [ ] Required signage tracking
+- [ ] Night work lighting requirements
+- [ ] Lane closure documentation
+- [ ] Safety briefing sign-offs
+- [ ] OSHA toolbox talk integration
+
+### Technical Opportunities (Modern Web APIs)
+
+- [ ] Background Sync API - auto-sync when connectivity returns
+- [ ] Periodic Background Sync - fetch job updates overnight
+- [ ] Geolocation watchPosition - real-time location
+- [ ] Wake Lock API - prevent screen sleep during work
+- [ ] Notification Triggers API - location-based reminders
+- [ ] File System Access API - batch photo upload
+- [ ] Web Share Target API - receive photos from camera app
+
+### Integration Ideas
+
+#### High Priority
+- [ ] QuickBooks - payroll, invoicing, job costing
+- [ ] Weather API - auto-log conditions
+- [ ] Google Maps - route optimization, travel time
+- [ ] Google Calendar - crew scheduling sync
+
+#### Medium Priority
+- [ ] Stripe/Square - payment collection in field
+- [ ] Gusto/ADP - direct payroll export
+- [ ] Zapier - connect to 5000+ apps
+
+#### Industry-Specific
+- [ ] Home Depot Pro Xtra - material ordering
+- [ ] Equipment GPS tracking
+- [ ] Safety/OSHA compliance apps
+
+### Business Model Ideas
+
+If commercialized, consider tiered pricing:
+- **Free**: 1 user, 3 active jobs (viral adoption)
+- **Team** ($29/mo): 5 users, unlimited jobs, offline, photos
+- **Pro** ($79/mo): 15 users, time tracking, reports, integrations
+- **Business** ($149/mo): Unlimited users, API access, priority support
+
+### Competitive Positioning
+
+Target sweet spot:
+- 2-20 person crews
+- Specialty trades (pavement marking, concrete, landscaping)
+- Price-conscious but need professional tools
+- Poor connectivity environments
+- Mobile-primary workflows
+
+Differentiators:
+- True offline-first (not afterthought)
+- Mobile-first, glove-friendly
+- Simple (15-minute onboarding)
+- Vertical focus on specialty contractors
+
 ## Available MCP Servers
 
 - **supabase**: Database operations and management
