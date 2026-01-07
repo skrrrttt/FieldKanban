@@ -83,7 +83,7 @@ export function AppSidebar() {
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">FieldKanban</span>
                   <span className="truncate text-xs text-muted-foreground">
-                    Construction
+                    Preview Build
                   </span>
                 </div>
               </Link>
