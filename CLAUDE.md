@@ -838,3 +838,42 @@ Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
 ```
 
 Types: `Add`, `Update`, `Fix`, `Refactor`, `Remove`, `Test`, `Docs`
+
+## Session Log
+
+### January 6, 2026 - UI Revamp + Authentication
+
+**Completed:**
+
+1. **UI Revamp with shadcn/ui**
+   - Initialized shadcn/ui with Linear-inspired theme (indigo primary #5865F2)
+   - Added dark/light mode toggle with next-themes
+   - Created hybrid navigation (sidebar on desktop, header on mobile)
+   - Refactored JobCard, TaskCard, Column with shadcn components
+   - Installed: button, card, badge, dialog, sheet, dropdown-menu, tabs, avatar, separator, tooltip, skeleton, sidebar, sonner
+
+2. **Git Workflow Setup**
+   - Created `develop` branch for staging
+   - Documented branching strategy (feature/* → develop → main)
+   - Configured for Vercel preview deployments
+
+3. **Phase 4b: Magic Link Authentication**
+   - `src/middleware.ts` - Route protection, redirects unauthenticated users
+   - `src/app/auth/callback/route.ts` - PKCE code exchange for magic links
+   - `src/app/(auth)/layout.tsx` - Centered auth layout
+   - `src/app/(auth)/login/page.tsx` - Email form with magic link
+   - `src/app/(auth)/verify/page.tsx` - "Check your email" confirmation
+   - `src/lib/hooks/useAuth.ts` - Auth state hook with signOut
+   - Updated dashboard layout to use useAuth instead of mockRepository
+   - Wired logout buttons in AppSidebar and AppHeader
+
+**Important Notes:**
+- Supabase redirect URLs must be configured in dashboard for auth to work
+- Add `http://localhost:3000/auth/callback` for local dev
+- Add Vercel preview URL pattern for preview deployments
+- User is testing auth on Vercel preview build
+
+**Next Steps (Phase 4c):**
+- Supabase repository provider implementation
+- Replace mock provider with real Supabase data
+- Real-time subscriptions for task updates
