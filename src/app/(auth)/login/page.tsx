@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Mail, Loader2, AlertCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -8,8 +8,9 @@ import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 
-export default function LoginPage() {
+function LoginForm() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -67,6 +68,48 @@ export default function LoginPage() {
   }
 
   return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="space-y-2">
+        <div className="relative">
+          <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            type="email"
+            placeholder="name@company.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="pl-10"
+            disabled={loading}
+            autoComplete="email"
+            autoFocus
+          />
+        </div>
+      </div>
+
+      <Button type="submit" className="w-full" disabled={loading}>
+        {loading ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Sending magic link...
+          </>
+        ) : (
+          "Continue with Email"
+        )}
+      </Button>
+    </form>
+  );
+}
+
+function LoginFormFallback() {
+  return (
+    <div className="space-y-4">
+      <Skeleton className="h-10 w-full" />
+      <Skeleton className="h-10 w-full" />
+    </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
     <Card>
       <CardHeader className="text-center">
         <CardTitle className="text-2xl">Welcome back</CardTitle>
@@ -75,34 +118,9 @@ export default function LoginPage() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="email"
-                placeholder="name@company.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="pl-10"
-                disabled={loading}
-                autoComplete="email"
-                autoFocus
-              />
-            </div>
-          </div>
-
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Sending magic link...
-              </>
-            ) : (
-              "Continue with Email"
-            )}
-          </Button>
-        </form>
+        <Suspense fallback={<LoginFormFallback />}>
+          <LoginForm />
+        </Suspense>
 
         <div className="mt-6 p-4 bg-muted/50 rounded-lg">
           <div className="flex gap-3">

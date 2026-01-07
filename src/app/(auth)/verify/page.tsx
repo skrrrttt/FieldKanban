@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Mail, Loader2, ArrowLeft, RefreshCw } from "lucide-react";
@@ -14,8 +14,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 
-export default function VerifyPage() {
+function VerifyContent() {
   const [resending, setResending] = useState(false);
   const searchParams = useSearchParams();
   const email = searchParams.get("email") || "";
@@ -60,7 +61,7 @@ export default function VerifyPage() {
   }
 
   return (
-    <Card>
+    <>
       <CardHeader className="text-center">
         <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
           <Mail className="h-7 w-7 text-primary" />
@@ -107,6 +108,39 @@ export default function VerifyPage() {
           </Button>
         </div>
       </CardContent>
+    </>
+  );
+}
+
+function VerifyContentFallback() {
+  return (
+    <>
+      <CardHeader className="text-center">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10">
+          <Mail className="h-7 w-7 text-primary" />
+        </div>
+        <CardTitle className="text-2xl">Check your email</CardTitle>
+        <CardDescription>
+          <Skeleton className="h-4 w-48 mx-auto" />
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <Skeleton className="h-20 w-full" />
+        <div className="flex flex-col gap-2">
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+      </CardContent>
+    </>
+  );
+}
+
+export default function VerifyPage() {
+  return (
+    <Card>
+      <Suspense fallback={<VerifyContentFallback />}>
+        <VerifyContent />
+      </Suspense>
     </Card>
   );
 }
