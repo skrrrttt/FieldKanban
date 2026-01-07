@@ -150,6 +150,200 @@ src/
 - **Photo Capture**: Device camera via `navigator.mediaDevices`, store in IndexedDB, queue for upload
 - **File Viewer**: PDF viewing, image zoom/pan, offline caching
 
+## Backend Architecture (Supabase)
+
+### Database Schema
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│    profiles     │     │      jobs       │     │    columns      │
+├─────────────────┤     ├─────────────────┤     ├─────────────────┤
+│ id (PK, FK auth)│◄────│ created_by (FK) │     │ id (PK)         │
+│ email           │     │ id (PK)         │◄────│ job_id (FK)     │
+│ name            │     │ title           │     │ name            │
+│ role (enum)     │     │ description     │     │ order           │
+│ avatar_url      │     │ client_name     │     │ color           │
+│ created_at      │     │ address         │     │ created_at      │
+│ updated_at      │     │ status (enum)   │     └─────────────────┘
+└─────────────────┘     │ created_at      │
+        │               │ updated_at      │
+        │               └─────────────────┘
+        │                       │
+        ▼                       ▼
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│ job_assignments │     │     tasks       │     │task_assignments │
+├─────────────────┤     ├─────────────────┤     ├─────────────────┤
+│ id (PK)         │     │ id (PK)         │◄────│ task_id (FK)    │
+│ job_id (FK)     │     │ job_id (FK)     │     │ user_id (FK)    │
+│ user_id (FK)    │     │ column_id (FK)  │     │ assigned_at     │
+│ assigned_by (FK)│     │ title           │     │ id (PK)         │
+│ assigned_at     │     │ description     │     └─────────────────┘
+└─────────────────┘     │ priority (enum) │
+                        │ due_date        │
+                        │ location        │
+                        │ duration        │
+                        │ spec_reference  │
+                        │ order           │
+                        │ version         │  ◄── Optimistic locking
+                        │ created_by (FK) │
+                        │ created_at      │
+                        │ updated_at      │
+                        └─────────────────┘
+                                │
+                ┌───────────────┴───────────────┐
+                ▼                               ▼
+        ┌─────────────────┐             ┌─────────────────┐
+        │    comments     │             │file_attachments │
+        ├─────────────────┤             ├─────────────────┤
+        │ id (PK)         │             │ id (PK)         │
+        │ task_id (FK)    │             │ task_id (FK)    │
+        │ user_id (FK)    │             │ uploaded_by (FK)│
+        │ content         │             │ name            │
+        │ created_at      │             │ storage_path    │
+        └─────────────────┘             │ mime_type       │
+                                        │ size            │
+                                        │ type (enum)     │
+                                        │ sync_status     │
+                                        │ uploaded_at     │
+                                        └─────────────────┘
+
+┌─────────────────┐
+│push_subscriptions│
+├─────────────────┤
+│ id (PK)         │
+│ user_id (FK)    │
+│ endpoint        │
+│ p256dh          │
+│ auth            │
+│ created_at      │
+└─────────────────┘
+```
+
+### Enums
+
+| Enum | Values |
+|------|--------|
+| `user_role` | `admin`, `field` |
+| `job_status` | `active`, `completed`, `archived` |
+| `task_priority` | `low`, `medium`, `high`, `urgent` |
+| `file_type` | `image`, `document` |
+| `sync_status` | `synced`, `pending`, `error` |
+
+### RLS Policy Structure
+
+**Admin users** (role = 'admin'):
+- Full CRUD on all tables
+- Can assign users to jobs and tasks
+- Can manage columns
+
+**Field users** (role = 'field'):
+- Read jobs they're assigned to (via `job_assignments`)
+- Read tasks in their assigned jobs
+- Update tasks they're assigned to (via `task_assignments`)
+- Create comments on accessible tasks
+- Upload files to accessible tasks
+- Read own profile, update limited fields
+
+**Helper Functions** (defined in database):
+```sql
+is_admin()                    -- Returns true if current user is admin
+is_assigned_to_job(job_uuid)  -- Returns true if user assigned to job
+is_assigned_to_task(task_uuid) -- Returns true if user assigned to task
+can_access_task(task_uuid)    -- Returns true if admin OR assigned to task's job
+```
+
+### Authentication Strategy
+
+**Magic Link Flow:**
+1. User enters email on `/login`
+2. Supabase sends magic link email
+3. User clicks link → redirected to `/auth/callback`
+4. Callback exchanges code for session
+5. Middleware redirects to `/jobs`
+
+**Session Management:**
+- JWT tokens stored in HTTP-only cookies
+- Server-side session validation via `@supabase/ssr`
+- Auto-refresh on token expiry
+
+**Profile Auto-Creation:**
+- Database trigger creates profile on `auth.users` insert
+- Default role: `field` (admin must upgrade)
+
+### Storage Configuration
+
+**Bucket:** `task-attachments`
+- Max file size: 10MB
+- Allowed types: images, PDFs
+- Path structure: `{task_id}/{file_id}.{ext}`
+
+**Policies:**
+- Upload: User can access task (admin or assigned)
+- Download: User can access task
+- Delete: Admin only
+
+### Sync Strategy
+
+**Online Flow:**
+1. UI action triggers repository method
+2. Repository calls Supabase directly
+3. Real-time subscription updates other clients
+4. IndexedDB updated as cache
+
+**Offline Flow:**
+1. UI action triggers repository method
+2. Repository writes to IndexedDB immediately
+3. Operation queued in `syncQueue` store
+4. When online, queue processed FIFO
+5. Conflicts resolved per field type
+
+**Conflict Resolution:**
+- `version` field on tasks for optimistic locking
+- Server rejects stale updates (version mismatch)
+- Client fetches latest, shows conflict UI
+- Comments: append-only, no conflicts
+- Files: last-upload-wins
+
+### API Routes (Next.js)
+
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `/api/auth/callback` | GET | Handle magic link callback |
+| `/api/auth/logout` | POST | Clear session |
+| `/api/push/subscribe` | POST | Register push subscription |
+| `/api/push/unsubscribe` | POST | Remove push subscription |
+
+### Edge Functions (Supabase)
+
+| Function | Trigger | Purpose |
+|----------|---------|---------|
+| `send-push-notification` | Task update | Notify assigned users |
+| `cleanup-expired-files` | Cron (daily) | Remove orphaned uploads |
+
+### Current Progress
+
+**Completed (Phase 4a):**
+- [x] All 8 database tables created via migrations
+- [x] RLS enabled on all tables with policies
+- [x] Helper functions for access control
+- [x] Storage bucket with upload/download policies
+- [x] TypeScript types generated (`src/types/supabase.ts`)
+- [x] Supabase client utilities (`src/lib/supabase/`)
+- [x] Environment configuration (`.env.example`)
+
+**Next (Phase 4b - Authentication):**
+- [ ] Login page with magic link form
+- [ ] Auth callback route handler
+- [ ] Middleware for protected routes
+- [ ] useAuth hook implementation
+- [ ] Logout functionality
+
+**Then (Phase 4c - Data Integration):**
+- [ ] Supabase repository provider
+- [ ] Replace mock provider usage
+- [ ] Real-time subscriptions
+- [ ] Push notification edge function
+
 ## User Roles
 
 - **Admin**: Create/edit jobs, tasks, columns; upload files; manage users
