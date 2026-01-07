@@ -9,7 +9,7 @@ FieldKanban is a PWA Kanban app for field construction operations. Field users v
 **Key Features:**
 - Offline-first architecture with IndexedDB
 - PWA for web, iOS, and tablet
-- Magic link authentication (passwordless)
+- Google OAuth authentication (single-click sign in)
 - Admin-customizable Kanban columns per job
 - Photo upload from field devices
 - Push notifications for task updates
@@ -59,9 +59,10 @@ npm run lint     # Run ESLint
 ```
 src/
 ├── app/                      # Next.js App Router
-│   ├── (auth)/              # Auth routes (login, magic-link)
-│   │   ├── login/
-│   │   └── verify/
+│   ├── (auth)/              # Auth routes (Google OAuth)
+│   │   ├── login/           # Google sign-in button
+│   │   ├── callback/        # OAuth callback handler (client-side)
+│   │   └── verify/          # Legacy, redirects to login
 │   ├── (dashboard)/         # Protected routes
 │   │   ├── layout.tsx       # Dashboard layout with nav
 │   │   ├── page.tsx         # Home/overview
@@ -254,12 +255,20 @@ can_access_task(task_uuid)    -- Returns true if admin OR assigned to task's job
 
 ### Authentication Strategy
 
-**Magic Link Flow:**
-1. User enters email on `/login`
-2. Supabase sends magic link email
-3. User clicks link → redirected to `/auth/callback`
-4. Callback exchanges code for session
-5. Middleware redirects to `/jobs`
+**Google OAuth Flow:**
+1. User clicks "Continue with Google" on `/login`
+2. Supabase redirects to Google OAuth consent screen
+3. User authenticates with Google
+4. Google redirects back to Supabase callback
+5. Supabase redirects to `/callback` with auth code
+6. Client-side callback exchanges code for session
+7. User redirected to `/jobs`
+
+**Why Google OAuth (not Magic Links):**
+- Simpler UX (single click vs email + click)
+- No PKCE code_verifier issues with server/client mismatch
+- More familiar to users
+- No email deliverability concerns
 
 **Session Management:**
 - JWT tokens stored in HTTP-only cookies
@@ -268,6 +277,7 @@ can_access_task(task_uuid)    -- Returns true if admin OR assigned to task's job
 
 **Profile Auto-Creation:**
 - Database trigger creates profile on `auth.users` insert
+- Name and avatar pulled from Google account
 - Default role: `field` (admin must upgrade)
 
 ### Storage Configuration
@@ -304,14 +314,15 @@ can_access_task(task_uuid)    -- Returns true if admin OR assigned to task's job
 - Comments: append-only, no conflicts
 - Files: last-upload-wins
 
-### API Routes (Next.js)
+### Routes (Next.js)
 
-| Route | Method | Purpose |
-|-------|--------|---------|
-| `/api/auth/callback` | GET | Handle magic link callback |
-| `/api/auth/logout` | POST | Clear session |
-| `/api/push/subscribe` | POST | Register push subscription |
-| `/api/push/unsubscribe` | POST | Remove push subscription |
+| Route | Type | Purpose |
+|-------|------|---------|
+| `/login` | Page | Google OAuth sign-in button |
+| `/callback` | Page | Client-side OAuth callback handler |
+| `/auth/callback` | Route | Legacy redirect to `/callback` |
+| `/api/push/subscribe` | API | Register push subscription |
+| `/api/push/unsubscribe` | API | Remove push subscription |
 
 ### Edge Functions (Supabase)
 
@@ -332,12 +343,12 @@ can_access_task(task_uuid)    -- Returns true if admin OR assigned to task's job
 - [x] Environment configuration (`.env.example`)
 
 **Completed (Phase 4b - Authentication):**
-- [x] Login page with magic link form (`src/app/(auth)/login/page.tsx`)
-- [x] Verify page for email confirmation (`src/app/(auth)/verify/page.tsx`)
-- [x] Auth callback route handler (`src/app/auth/callback/route.ts`)
+- [x] Google OAuth login (`src/app/(auth)/login/page.tsx`)
+- [x] Client-side OAuth callback (`src/app/(auth)/callback/page.tsx`)
 - [x] Middleware for protected routes (`src/middleware.ts`)
 - [x] useAuth hook implementation (`src/lib/hooks/useAuth.ts`)
 - [x] Logout functionality wired to sidebar and header
+- [x] Profile auto-creation trigger in database
 
 **Next (Phase 4c - Data Integration):**
 - [ ] Supabase repository provider
@@ -538,11 +549,11 @@ Desktop (≥ 1024px):
 - [x] TypeScript types generated from schema
 - [x] Supabase client utilities (browser + server)
 
-#### Phase 4b: Authentication (Next)
-- [ ] Magic link authentication flow
-- [ ] Auth middleware for protected routes
-- [ ] Profile auto-creation on signup
-- [ ] Session management
+#### Phase 4b: Authentication (Complete)
+- [x] Google OAuth authentication flow
+- [x] Auth middleware for protected routes
+- [x] Profile auto-creation on signup
+- [x] Session management
 
 #### Phase 4c: Data Layer Integration
 - [ ] Supabase provider implementation
