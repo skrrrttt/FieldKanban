@@ -216,10 +216,26 @@ src/
 - [ ] Offline file caching
 
 ### Phase 4: Backend Integration (Supabase)
-- [ ] Authentication with magic link
-- [ ] Connect data layer to Supabase
-- [ ] Real-time updates
-- [ ] Push notifications
+
+#### Phase 4a: Supabase Setup (Complete)
+- [x] Database schema with migrations (8 tables: profiles, jobs, columns, tasks, task_assignments, comments, file_attachments, push_subscriptions)
+- [x] RLS policies for role-based access (admin vs field users)
+- [x] Helper functions (is_admin, is_assigned_to_job, is_assigned_to_task, can_access_task)
+- [x] Storage bucket (task-attachments) with policies
+- [x] TypeScript types generated from schema
+- [x] Supabase client utilities (browser + server)
+
+#### Phase 4b: Authentication (Next)
+- [ ] Magic link authentication flow
+- [ ] Auth middleware for protected routes
+- [ ] Profile auto-creation on signup
+- [ ] Session management
+
+#### Phase 4c: Data Layer Integration
+- [ ] Supabase provider implementation
+- [ ] Connect repository to Supabase
+- [ ] Real-time subscriptions for task updates
+- [ ] Push notifications via Edge Functions
 
 ### Phase 5: Admin Features
 - [ ] Custom column management
