@@ -38,33 +38,49 @@ function LoginForm() {
 
     setLoading(true);
 
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim().toLowerCase(),
-      options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
+    try {
+      const supabase = createClient();
 
-    setLoading(false);
+      // Add timeout to prevent infinite loading
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("Request timed out")), 15000);
+      });
 
-    if (error) {
-      // Handle rate limiting specifically
-      if (error.message.includes("rate") || error.status === 429) {
-        toast.error("Too many requests", {
-          description: "Please wait a moment before trying again.",
+      const authPromise = supabase.auth.signInWithOtp({
+        email: email.trim().toLowerCase(),
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+
+      const { error } = await Promise.race([authPromise, timeoutPromise]) as { error: { message: string; status?: number } | null };
+
+      if (error) {
+        // Handle rate limiting specifically
+        if (error.message.includes("rate") || error.status === 429) {
+          toast.error("Too many requests", {
+            description: "Please wait a moment before trying again.",
+          });
+          return;
+        }
+
+        toast.error("Failed to send magic link", {
+          description: error.message,
         });
         return;
       }
 
+      // Success - redirect to verify page
+      router.push(`/verify?email=${encodeURIComponent(email.trim().toLowerCase())}`);
+    } catch (err) {
+      console.error("Auth error:", err);
+      const message = err instanceof Error ? err.message : "An unexpected error occurred";
       toast.error("Failed to send magic link", {
-        description: error.message,
+        description: message,
       });
-      return;
+    } finally {
+      setLoading(false);
     }
-
-    // Success - redirect to verify page
-    router.push(`/verify?email=${encodeURIComponent(email.trim().toLowerCase())}`);
   }
 
   return (
