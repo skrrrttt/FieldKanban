@@ -43,7 +43,13 @@ export async function middleware(request: NextRequest) {
   // Refresh session if expired - important for Server Components
   const {
     data: { user },
+    error: userError,
   } = await supabase.auth.getUser();
+
+  // Log auth state for debugging
+  if (userError) {
+    console.log("[Middleware] Auth error:", userError.message, "Path:", request.nextUrl.pathname);
+  }
 
   // Protected routes - redirect to login if not authenticated
   const isProtectedRoute =
@@ -51,6 +57,7 @@ export async function middleware(request: NextRequest) {
     request.nextUrl.pathname.startsWith("/admin");
 
   if (!user && isProtectedRoute) {
+    console.log("[Middleware] No user for protected route, redirecting to login. Path:", request.nextUrl.pathname);
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("redirect", request.nextUrl.pathname);

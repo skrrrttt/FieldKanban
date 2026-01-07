@@ -80,18 +80,27 @@ export function useAuth(): UseAuthReturn {
   useEffect(() => {
     const supabase = createClient();
 
-    // Get initial session
+    // Get initial user - using getUser() validates the session with the server
+    // This is more secure than getSession() which only reads from local storage
     const initializeAuth = async () => {
       try {
         const {
-          data: { session },
-        } = await supabase.auth.getSession();
+          data: { user },
+          error,
+        } = await supabase.auth.getUser();
 
-        if (session?.user) {
-          await fetchProfile(session.user.id);
+        if (error) {
+          console.log("[useAuth] No valid session:", error.message);
+        }
+
+        if (user) {
+          console.log("[useAuth] User found, fetching profile:", user.id);
+          await fetchProfile(user.id);
+        } else {
+          console.log("[useAuth] No user found");
         }
       } catch (err) {
-        console.error("Error initializing auth:", err);
+        console.error("[useAuth] Error initializing auth:", err);
       } finally {
         setLoading(false);
       }

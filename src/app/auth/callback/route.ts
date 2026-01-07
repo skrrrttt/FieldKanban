@@ -1,4 +1,5 @@
-import { createClient } from "@/lib/supabase/server";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
@@ -10,6 +11,7 @@ export async function GET(request: Request) {
 
   // Handle OAuth/magic link errors from Supabase
   if (error) {
+    console.error("[Auth Callback] Error from Supabase:", error, errorDescription);
     const loginUrl = new URL("/login", origin);
     loginUrl.searchParams.set("error", error);
     if (errorDescription) {
@@ -19,27 +21,51 @@ export async function GET(request: Request) {
   }
 
   if (code) {
-    const supabase = await createClient();
+    const cookieStore = await cookies();
+
+    // Create Supabase client that will set cookies on the cookieStore
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return cookieStore.getAll();
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value, options }) => {
+              cookieStore.set(name, value, options);
+            });
+          },
+        },
+      }
+    );
+
     const { error: exchangeError } =
       await supabase.auth.exchangeCodeForSession(code);
 
     if (!exchangeError) {
+      console.log("[Auth Callback] Session exchange successful, redirecting to:", next);
+
       // Successful authentication - redirect to intended destination
       const forwardedHost = request.headers.get("x-forwarded-host");
       const isLocalEnv = process.env.NODE_ENV === "development";
 
+      let redirectUrl: string;
       if (isLocalEnv) {
-        // In development, redirect to localhost
-        return NextResponse.redirect(`${origin}${next}`);
+        redirectUrl = `${origin}${next}`;
       } else if (forwardedHost) {
-        // In production behind a proxy
-        return NextResponse.redirect(`https://${forwardedHost}${next}`);
+        redirectUrl = `https://${forwardedHost}${next}`;
       } else {
-        return NextResponse.redirect(`${origin}${next}`);
+        redirectUrl = `${origin}${next}`;
       }
+
+      // Redirect - cookies are already set on the cookieStore
+      return NextResponse.redirect(redirectUrl);
     }
 
     // Exchange failed - redirect to login with error
+    console.error("[Auth Callback] Exchange failed:", exchangeError.message);
     const loginUrl = new URL("/login", origin);
     loginUrl.searchParams.set("error", "auth_callback_failed");
     loginUrl.searchParams.set(
@@ -50,6 +76,7 @@ export async function GET(request: Request) {
   }
 
   // No code provided - redirect to login
+  console.warn("[Auth Callback] No code provided");
   const loginUrl = new URL("/login", origin);
   loginUrl.searchParams.set("error", "missing_code");
   loginUrl.searchParams.set(
