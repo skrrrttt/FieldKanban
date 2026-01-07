@@ -646,6 +646,13 @@ Differentiators:
 
 ## Development Guidelines
 
+### Session Continuity (IMPORTANT)
+- **Always read CLAUDE.md at the start of any session**
+- **Always update CLAUDE.md after completing significant work**
+- Document crucial decisions, configurations, and progress so context is never lost
+- If something would be painful to rediscover, write it down here
+
+### Code Standards
 - Use TypeScript strict mode; never use `any` types
 - Follow Next.js App Router conventions
 - Prefer server components; use client components only when interactivity needed
