@@ -7,7 +7,6 @@ import {
   Calendar,
   MessageSquare,
   Paperclip,
-  User,
   MapPin,
   Clock,
   FileText,
@@ -15,6 +14,9 @@ import {
   Flag,
   AlertCircle,
 } from "lucide-react";
+import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import type { Task, TaskPriority } from "@/types";
 
@@ -24,12 +26,45 @@ interface TaskCardProps {
   overlay?: boolean;
 }
 
-// Priority icon and color mapping
-const priorityConfig: Record<TaskPriority, { icon: typeof Flag; color: string; label: string }> = {
-  low: { icon: Flag, color: "text-slate-400", label: "Low" },
-  medium: { icon: Flag, color: "text-blue-500", label: "Medium" },
-  high: { icon: AlertCircle, color: "text-orange-500", label: "High" },
-  urgent: { icon: AlertTriangle, color: "text-red-500", label: "Urgent" },
+// Priority configuration with icon, colors, and labels
+const priorityConfig: Record<
+  TaskPriority,
+  {
+    icon: typeof Flag;
+    borderColor: string;
+    badgeBg: string;
+    badgeText: string;
+    label: string;
+  }
+> = {
+  low: {
+    icon: Flag,
+    borderColor: "border-l-muted-foreground/30",
+    badgeBg: "bg-muted",
+    badgeText: "text-muted-foreground",
+    label: "Low",
+  },
+  medium: {
+    icon: Flag,
+    borderColor: "border-l-primary",
+    badgeBg: "bg-primary/10",
+    badgeText: "text-primary",
+    label: "Medium",
+  },
+  high: {
+    icon: AlertCircle,
+    borderColor: "border-l-orange-500",
+    badgeBg: "bg-orange-100 dark:bg-orange-950",
+    badgeText: "text-orange-700 dark:text-orange-400",
+    label: "High",
+  },
+  urgent: {
+    icon: AlertTriangle,
+    borderColor: "border-l-destructive",
+    badgeBg: "bg-destructive/10",
+    badgeText: "text-destructive",
+    label: "Urgent",
+  },
 };
 
 // Format duration for display
@@ -63,47 +98,54 @@ export function TaskCard({ task, onClick, overlay = false }: TaskCardProps) {
 
   const isOverdue = task.dueDate && new Date(task.dueDate) < new Date();
   const priority = task.priority || "medium";
-  const PriorityIcon = priorityConfig[priority].icon;
+  const config = priorityConfig[priority];
+  const PriorityIcon = config.icon;
 
   return (
-    <div
+    <Card
       ref={setNodeRef}
       style={style}
       className={cn(
-        "bg-white dark:bg-slate-800 rounded-xl border-l-4 shadow-sm",
-        "hover:shadow-md transition-all cursor-pointer select-none",
-        // Adaptive padding: compact on desktop, spacious on mobile
-        "p-3 sm:p-3 md:p-3 lg:p-3",
+        // Base styles - bordered card
+        "relative border bg-card hover:border-primary/50 transition-all cursor-pointer select-none",
+        // Left border for priority
+        "border-l-4",
+        config.borderColor,
+        // Padding
+        "p-3",
+        // Touch handling
         "touch-manipulation",
-        // Priority-based left border color
-        priority === "urgent" && "border-l-red-500",
-        priority === "high" && "border-l-orange-500",
-        priority === "medium" && "border-l-blue-500",
-        priority === "low" && "border-l-slate-300",
-        // Border for non-left sides
-        "border-t border-r border-b border-slate-200 dark:border-slate-700",
-        isDragging && "opacity-50 shadow-lg ring-2 ring-blue-500",
+        // Drag states
+        isDragging && "opacity-50 shadow-lg ring-2 ring-primary",
         overlay && "shadow-xl rotate-2 scale-105"
       )}
       onClick={onClick}
     >
-      {/* Top Row: Priority Icon + Title + Drag Handle */}
-      <div className="flex items-start gap-2">
-        {/* Priority Icon */}
-        <div className={cn("mt-0.5 flex-shrink-0", priorityConfig[priority].color)}>
-          <PriorityIcon className="w-4 h-4" aria-label={`${priorityConfig[priority].label} priority`} />
-        </div>
+      {/* Priority Badge - Top Right Corner */}
+      <Badge
+        className={cn(
+          "absolute -top-2 -right-2 gap-1",
+          config.badgeBg,
+          config.badgeText,
+          "border-0 shadow-sm"
+        )}
+      >
+        <PriorityIcon className="h-3 w-3" />
+        <span className="text-[10px]">{config.label}</span>
+      </Badge>
 
+      {/* Top Row: Title + Drag Handle */}
+      <div className="flex items-start gap-2 pr-6">
         {/* Title */}
-        <h4 className="flex-1 font-medium text-slate-900 dark:text-white text-sm leading-snug line-clamp-2">
+        <h4 className="flex-1 font-medium text-sm leading-snug line-clamp-2">
           {task.title}
         </h4>
 
         {/* Drag Handle - larger touch target */}
         <button
           className={cn(
-            "flex-shrink-0 p-2 -mr-1 rounded-lg",
-            "hover:bg-slate-100 dark:hover:bg-slate-700",
+            "flex-shrink-0 p-2 -mr-1 -mt-1 rounded-lg",
+            "hover:bg-muted",
             "cursor-grab active:cursor-grabbing touch-none",
             "min-w-[44px] min-h-[44px] flex items-center justify-center"
           )}
@@ -111,35 +153,35 @@ export function TaskCard({ task, onClick, overlay = false }: TaskCardProps) {
           {...attributes}
           {...listeners}
         >
-          <GripVertical className="w-5 h-5 text-slate-400" />
+          <GripVertical className="h-4 w-4 text-muted-foreground" />
         </button>
       </div>
 
       {/* Description preview */}
       {task.description && (
-        <p className="mt-2 text-xs text-slate-500 dark:text-slate-400 line-clamp-2 pl-6">
+        <p className="mt-2 text-xs text-muted-foreground line-clamp-2">
           {task.description}
         </p>
       )}
 
       {/* Field Info Row: Location, Duration, Spec */}
       {(task.location || task.duration || task.specReference) && (
-        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 pl-6 text-xs text-slate-500 dark:text-slate-400">
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
           {task.location && (
             <div className="flex items-center gap-1" title="Location">
-              <MapPin className="w-3.5 h-3.5 text-blue-500" />
+              <MapPin className="h-3 w-3 text-primary" />
               <span className="truncate max-w-[120px]">{task.location}</span>
             </div>
           )}
           {task.duration && (
             <div className="flex items-center gap-1" title="Estimated duration">
-              <Clock className="w-3.5 h-3.5 text-green-500" />
+              <Clock className="h-3 w-3 text-accent" />
               <span>{formatDuration(task.duration)}</span>
             </div>
           )}
           {task.specReference && (
             <div className="flex items-center gap-1" title="Spec reference">
-              <FileText className="w-3.5 h-3.5 text-purple-500" />
+              <FileText className="h-3 w-3 text-violet-500" />
               <span className="truncate max-w-[80px]">{task.specReference}</span>
             </div>
           )}
@@ -147,20 +189,18 @@ export function TaskCard({ task, onClick, overlay = false }: TaskCardProps) {
       )}
 
       {/* Bottom Row: Due Date, Indicators, Assignees */}
-      <div className="mt-3 flex items-center gap-3 pl-6">
+      <div className="mt-3 flex items-center gap-3">
         {/* Due date */}
         {task.dueDate && (
           <div
             className={cn(
               "flex items-center gap-1 text-xs font-medium",
-              isOverdue
-                ? "text-red-600 dark:text-red-400"
-                : "text-slate-500 dark:text-slate-400"
+              isOverdue ? "text-destructive" : "text-muted-foreground"
             )}
           >
-            <Calendar className="w-3.5 h-3.5" />
+            <Calendar className="h-3 w-3" />
             <span>{formatRelativeTime(task.dueDate)}</span>
-            {isOverdue && <AlertTriangle className="w-3 h-3 ml-0.5" />}
+            {isOverdue && <AlertTriangle className="h-3 w-3 ml-0.5" />}
           </div>
         )}
 
@@ -168,16 +208,16 @@ export function TaskCard({ task, onClick, overlay = false }: TaskCardProps) {
         <div className="flex-1" />
 
         {/* Indicators */}
-        <div className="flex items-center gap-2 text-slate-400">
-          {/* Comments indicator (placeholder) */}
+        <div className="flex items-center gap-2 text-muted-foreground">
+          {/* Comments indicator */}
           <div className="flex items-center gap-0.5" title="Comments">
-            <MessageSquare className="w-3.5 h-3.5" />
+            <MessageSquare className="h-3.5 w-3.5" />
             <span className="text-xs">0</span>
           </div>
 
-          {/* Attachments indicator (placeholder) */}
+          {/* Attachments indicator */}
           <div className="flex items-center gap-0.5" title="Attachments">
-            <Paperclip className="w-3.5 h-3.5" />
+            <Paperclip className="h-3.5 w-3.5" />
             <span className="text-xs">0</span>
           </div>
         </div>
@@ -186,23 +226,27 @@ export function TaskCard({ task, onClick, overlay = false }: TaskCardProps) {
         {task.assignedTo.length > 0 && (
           <div className="flex -space-x-1.5">
             {task.assignedTo.slice(0, 3).map((userId) => (
-              <div
+              <Avatar
                 key={userId}
-                className="w-7 h-7 rounded-full bg-blue-100 dark:bg-blue-900 border-2 border-white dark:border-slate-800 flex items-center justify-center"
+                className="h-6 w-6 border-2 border-card"
                 title={userId}
               >
-                <User className="w-3.5 h-3.5 text-blue-600 dark:text-blue-300" />
-              </div>
+                <AvatarFallback className="text-[10px] bg-primary text-primary-foreground">
+                  {userId.slice(0, 2).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
             ))}
             {task.assignedTo.length > 3 && (
-              <div className="w-7 h-7 rounded-full bg-slate-200 dark:bg-slate-700 border-2 border-white dark:border-slate-800 flex items-center justify-center text-xs font-medium text-slate-600 dark:text-slate-300">
-                +{task.assignedTo.length - 3}
-              </div>
+              <Avatar className="h-6 w-6 border-2 border-card">
+                <AvatarFallback className="text-[10px] bg-muted text-muted-foreground">
+                  +{task.assignedTo.length - 3}
+                </AvatarFallback>
+              </Avatar>
             )}
           </div>
         )}
       </div>
-    </div>
+    </Card>
   );
 }
 

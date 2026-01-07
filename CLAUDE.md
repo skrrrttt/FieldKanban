@@ -351,39 +351,157 @@ can_access_task(task_uuid)    -- Returns true if admin OR assigned to task's job
 
 ## UI/UX Design Decisions
 
-### Color Scheme: Professional Blue
-- Primary: Blue tones for trust and reliability (similar to Procore, PlanGrid)
-- Header: Dark blue (`bg-blue-900`) instead of slate
-- Accents: Blue-600 for buttons and interactive elements
-- Status colors: Green (complete), Yellow (in progress), Red (blocked/urgent)
+### UI Revamp (January 2026)
+
+**Design System**: shadcn/ui with Linear-inspired aesthetic
+
+**User Preferences Selected**:
+1. Color Palette: **Option A - Linear-inspired** (indigo primary)
+2. Light/Dark Mode: **Toggle** (equal priority)
+3. Navigation: **Hybrid** (header on mobile, sidebar on desktop)
+4. Card Style: **Bordered** (flat/minimal, subtle borders)
+5. Priority Indicators: **Both** (colored left border + corner badge)
+6. Animation Intensity: **Minimal/Moderate** (hover effects, smooth transitions)
+7. Mobile vs Desktop: **Balance both** equally
+8. Offline Indicator: **Subtle badge** in header
+
+### Color Palette (Linear-Inspired)
+
+| Role | Light Mode | Dark Mode | CSS Variable |
+|------|------------|-----------|--------------|
+| Background | `#FAFAFA` | `#0A0A0A` | `--background` |
+| Surface/Card | `#FFFFFF` | `#141414` | `--card` |
+| Primary | `#5865F2` | `#5865F2` | `--primary` |
+| Primary Foreground | `#FFFFFF` | `#FFFFFF` | `--primary-foreground` |
+| Muted | `#F4F4F5` | `#27272A` | `--muted` |
+| Muted Foreground | `#71717A` | `#A1A1AA` | `--muted-foreground` |
+| Border | `#E4E4E7` | `#27272A` | `--border` |
+| Accent | `#22C55E` | `#22C55E` | `--accent` (success) |
+| Destructive | `#EF4444` | `#F87171` | `--destructive` |
+| Warning | `#F59E0B` | `#FBBF24` | `--warning` |
+
+### Priority Colors (Both Border + Badge)
+| Priority | Left Border | Badge Background |
+|----------|-------------|------------------|
+| Urgent | `border-l-red-500` | `bg-red-100 text-red-700` |
+| High | `border-l-orange-500` | `bg-orange-100 text-orange-700` |
+| Medium | `border-l-primary` | `bg-primary/10 text-primary` |
+| Low | `border-l-muted` | `bg-muted text-muted-foreground` |
+
+### Typography (Geist Font - Already Installed)
+| Element | Weight | Size | Line Height |
+|---------|--------|------|-------------|
+| H1 | 700 (Bold) | 28-32px | 1.2 |
+| H2 | 600 (Semibold) | 20-24px | 1.3 |
+| H3 | 600 (Semibold) | 16-18px | 1.4 |
+| Body | 400 (Regular) | 14-16px | 1.5 |
+| Caption | 500 (Medium) | 12px | 1.4 |
+
+### Animation Specifications (Minimal/Moderate)
+```css
+/* Transitions */
+--transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+--transition-normal: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+
+/* Applied to */
+- Button hover: scale(1.02) + color shift (150ms)
+- Card hover: subtle border color change (200ms)
+- Drag start: scale(1.02) + shadow (150ms)
+- Modal open: fade + scale-in (200ms)
+- Tab switch: fade crossfade (150ms)
+```
+
+### shadcn/ui Components to Install
+**Core (Phase 1)**:
+- `button` - Primary actions
+- `card` - Task cards, job cards, panels
+- `badge` - Priority indicators, status tags
+- `dialog` - Confirmation dialogs
+- `sheet` - Mobile-friendly slide-out panels
+- `dropdown-menu` - User menu, task actions
+- `tabs` - Task detail tabs
+- `avatar` - User avatars
+
+**Layout (Phase 2)**:
+- `sidebar` - Desktop navigation
+- `separator` - Visual dividers
+
+**Forms (Phase 3 - for admin features)**:
+- `input`, `textarea`, `select`, `checkbox`, `label`, `form`
+
+**Feedback**:
+- `toast` - Notifications
+- `skeleton` - Loading states
+- `tooltip` - Icon explanations
+
+### Navigation Architecture
+```
+Mobile (< 1024px):
+┌─────────────────────────────────────┐
+│ [≡] Logo      [offline] [avatar ▼] │  ← Header bar
+├─────────────────────────────────────┤
+│                                     │
+│           Page Content              │
+│                                     │
+└─────────────────────────────────────┘
+
+Desktop (≥ 1024px):
+┌──────────┬──────────────────────────┐
+│ Logo     │  Page Title    [offline] │
+│ ──────── │  [avatar ▼]              │
+│ Jobs     ├──────────────────────────┤
+│ Team*    │                          │
+│ Settings*│      Page Content        │
+│          │                          │
+│          │                          │
+│ ──────── │                          │
+│ [theme]  │                          │
+└──────────┴──────────────────────────┘
+* Admin only
+```
+
+### Card Style (Bordered)
+```tsx
+// TaskCard styling
+<Card className="border border-border hover:border-primary/50 transition-colors">
+  {/* Left border for priority */}
+  <div className="border-l-4 border-l-{priority-color}">
+    {/* Content */}
+  </div>
+</Card>
+```
+
+### Offline Indicator (Subtle Badge)
+- Location: Header, right side near user avatar
+- Style: Small badge with icon
+- Online: Hidden or subtle green dot
+- Offline: `<Badge variant="outline"><WifiOff /> Offline</Badge>`
+- Syncing: `<Badge variant="outline"><RefreshCw className="animate-spin" /> 3 pending</Badge>`
+
+### Accessibility (Unchanged)
+- Minimum 48x48px touch targets (exceeds 44px guideline)
+- WCAG AAA contrast (7:1) for critical elements
+- Focus rings: 3px, high-visibility color
+- Never rely on color alone - always icons + text
+- ARIA labels on all icon-only buttons
 
 ### Card Density: Adaptive
 - **Desktop**: Compact cards, more tasks visible at once
 - **Mobile/Tablet**: Spacious cards with larger touch targets (min 44px)
 - Responsive padding: `p-3` on desktop, `p-4` on mobile
 
-### Priority/Status Display: Icon-based
-- Warning triangle for urgent/high priority
-- Flag icons for priority levels
-- Clock icon for overdue items
-- Checkmark for completed sub-items
-
 ### Task Card Information
 - Location/floor indicator (where on job site)
 - Duration estimate (time to complete)
 - Job specs reference (drawing/spec numbers)
-- Priority icon indicator
+- Priority badge in top-right corner
+- Colored left border for priority
 - Assignee avatars
 
 ### Touch Targets
-- Minimum 44x44px for all interactive elements
+- Minimum 48x48px for all interactive elements
 - Drag handles sized for gloved hands
 - Swipe gestures for mobile column navigation
-
-### Accessibility
-- ARIA labels on icon-only buttons
-- Focus outlines for keyboard navigation
-- Not relying on color alone for status
 
 ## Implementation Order
 

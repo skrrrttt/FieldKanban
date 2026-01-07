@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
-import { Header, OfflineIndicator } from "@/components/layout";
+import { AppSidebar, AppHeader } from "@/components/layout";
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { useAppStore } from "@/lib/store/app-store";
 import { mockRepository } from "@/lib/data/providers/mock";
 
@@ -24,12 +25,14 @@ export default function DashboardLayout({
   }, [setCurrentUser]);
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col">
-      <Header />
-      <main className="flex-1 flex flex-col overflow-hidden">
-        {children}
-      </main>
-      <OfflineIndicator />
-    </div>
+    <SidebarProvider>
+      <AppSidebar />
+      <SidebarInset>
+        <AppHeader />
+        <main className="flex-1 flex flex-col overflow-hidden bg-background">
+          {children}
+        </main>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
