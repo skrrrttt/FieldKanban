@@ -7,10 +7,11 @@ import Link from "next/link";
 import { Board, TaskDetail } from "@/components/kanban";
 import { AddTaskDialog } from "@/components/kanban/AddTaskDialog";
 import { AddColumnDialog } from "@/components/kanban/AddColumnDialog";
+import { JobStatusDropdown } from "@/components/jobs";
 import { useAppStore } from "@/lib/store/app-store";
 import { useRepository } from "@/lib/data/repository-context";
 import { toast } from "sonner";
-import type { Job, Column, Task } from "@/types";
+import type { Job, Column, Task, JobStatus } from "@/types";
 
 export default function JobBoardPage() {
   const params = useParams();
@@ -189,6 +190,13 @@ export default function JobBoardPage() {
     setColumns(result.data);
   }, [jobId, repository]);
 
+  // Handle job status change - optimistic update
+  const handleJobStatusChange = useCallback((newStatus: JobStatus) => {
+    if (job) {
+      setJob({ ...job, status: newStatus });
+    }
+  }, [job]);
+
   if (isLoading) {
     return (
       <div className="flex-1 flex items-center justify-center">
@@ -224,9 +232,16 @@ export default function JobBoardPage() {
               <ArrowLeft className="w-5 h-5" />
             </Link>
             <div>
-              <h1 className="font-semibold text-slate-900 dark:text-white text-lg">
-                {job.title}
-              </h1>
+              <div className="flex items-center gap-3">
+                <h1 className="font-semibold text-slate-900 dark:text-white text-lg">
+                  {job.title}
+                </h1>
+                <JobStatusDropdown
+                  job={job}
+                  isAdmin={isAdmin}
+                  onStatusChange={handleJobStatusChange}
+                />
+              </div>
               {job.address && (
                 <p className="text-sm text-slate-500 dark:text-slate-400">
                   {job.address}

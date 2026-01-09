@@ -6,7 +6,6 @@ import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -49,11 +48,19 @@ import {
   Eye,
   Pencil,
   Trash2,
+  Clock,
   Archive,
-  CheckCircle2
+  CheckCircle2,
+  Loader2,
 } from "lucide-react";
 
 type JobStatus = "active" | "completed" | "archived";
+
+const STATUS_ICONS = {
+  active: Clock,
+  completed: CheckCircle2,
+  archived: Archive,
+};
 
 interface Job {
   id: string;
@@ -66,10 +73,10 @@ interface Job {
   task_count?: number;
 }
 
-const STATUS_CONFIG: Record<JobStatus, { label: string; variant: "default" | "secondary" | "outline" }> = {
-  active: { label: "Active", variant: "default" },
-  completed: { label: "Completed", variant: "secondary" },
-  archived: { label: "Archived", variant: "outline" },
+const STATUS_CONFIG: Record<JobStatus, { label: string; variant: "default" | "secondary" | "outline"; badgeClass: string }> = {
+  active: { label: "Active", variant: "default", badgeClass: "bg-primary/10 text-primary border-primary/20" },
+  completed: { label: "Completed", variant: "secondary", badgeClass: "bg-accent/10 text-accent border-accent/20" },
+  archived: { label: "Archived", variant: "outline", badgeClass: "bg-muted text-muted-foreground" },
 };
 
 export default function AdminJobsPage() {
@@ -79,6 +86,7 @@ export default function AdminJobsPage() {
   const [statusFilter, setStatusFilter] = useState<"all" | JobStatus>("all");
   const [deleteJob, setDeleteJob] = useState<Job | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchJobs();
@@ -115,7 +123,16 @@ export default function AdminJobsPage() {
   }
 
   async function handleStatusChange(job: Job, newStatus: JobStatus) {
+    if (newStatus === job.status) return;
+
     const supabase = createClient();
+    const originalStatus = job.status;
+
+    // Optimistic update
+    setUpdatingStatusId(job.id);
+    setJobs((prev) =>
+      prev.map((j) => (j.id === job.id ? { ...j, status: newStatus } : j))
+    );
 
     try {
       const { error } = await supabase
@@ -128,11 +145,15 @@ export default function AdminJobsPage() {
       toast.success("Job status updated", {
         description: `${job.title} is now ${STATUS_CONFIG[newStatus].label.toLowerCase()}.`,
       });
-
-      fetchJobs();
     } catch (error) {
       console.error("Error updating job status:", error);
       toast.error("Failed to update job status");
+      // Revert on error
+      setJobs((prev) =>
+        prev.map((j) => (j.id === job.id ? { ...j, status: originalStatus } : j))
+      );
+    } finally {
+      setUpdatingStatusId(null);
     }
   }
 
@@ -296,9 +317,42 @@ export default function AdminJobsPage() {
                       {job.client_name || "-"}
                     </TableCell>
                     <TableCell>
-                      <Badge variant={STATUS_CONFIG[job.status].variant}>
-                        {STATUS_CONFIG[job.status].label}
-                      </Badge>
+                      <Select
+                        value={job.status}
+                        onValueChange={(value) =>
+                          handleStatusChange(job, value as JobStatus)
+                        }
+                        disabled={updatingStatusId === job.id}
+                      >
+                        <SelectTrigger
+                          className={`w-[130px] h-8 gap-2 ${STATUS_CONFIG[job.status].badgeClass} border focus:ring-1`}
+                        >
+                          {updatingStatusId === job.id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            (() => {
+                              const Icon = STATUS_ICONS[job.status];
+                              return <Icon className="h-3 w-3" />;
+                            })()
+                          )}
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(["active", "completed", "archived"] as JobStatus[]).map(
+                            (status) => {
+                              const Icon = STATUS_ICONS[status];
+                              return (
+                                <SelectItem key={status} value={status}>
+                                  <div className="flex items-center gap-2">
+                                    <Icon className="h-4 w-4" />
+                                    <span>{STATUS_CONFIG[status].label}</span>
+                                  </div>
+                                </SelectItem>
+                              );
+                            }
+                          )}
+                        </SelectContent>
+                      </Select>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {job.task_count}

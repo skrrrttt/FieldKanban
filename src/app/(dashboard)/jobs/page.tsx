@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useRef } from "react";
+import { useEffect, useState, useMemo, useRef, useCallback } from "react";
 import Link from "next/link";
 import { Plus, Search, Filter } from "lucide-react";
 import { JobList } from "@/components/jobs";
@@ -8,7 +8,7 @@ import { useAppStore } from "@/lib/store/app-store";
 import { useRepository } from "@/lib/data/repository-context";
 import { useDebounce } from "@/lib/hooks/useDebounce";
 import { Button } from "@/components/ui/button";
-import type { Job } from "@/types";
+import type { Job, JobStatus } from "@/types";
 
 export default function JobsPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -42,6 +42,15 @@ export default function JobsPage() {
     }
     loadJobs();
   }, [repository]);
+
+  // Handle status change - optimistic update
+  const handleStatusChange = useCallback((jobId: string, newStatus: JobStatus) => {
+    setJobs((prev) =>
+      prev.map((job) =>
+        job.id === jobId ? { ...job, status: newStatus } : job
+      )
+    );
+  }, []);
 
   // Memoized filter to prevent recalculation on every render
   const filteredJobs = useMemo(() => {
@@ -113,7 +122,12 @@ export default function JobsPage() {
         </div>
 
         {/* Jobs List */}
-        <JobList jobs={filteredJobs} isLoading={isLoading} />
+        <JobList
+          jobs={filteredJobs}
+          isLoading={isLoading}
+          isAdmin={isAdmin}
+          onStatusChange={handleStatusChange}
+        />
       </div>
     </div>
   );

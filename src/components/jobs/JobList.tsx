@@ -1,14 +1,16 @@
 "use client";
 
 import { JobCard } from "./JobCard";
-import type { Job } from "@/types";
+import type { Job, JobStatus } from "@/types";
 
 interface JobListProps {
   jobs: Job[];
   isLoading?: boolean;
+  isAdmin?: boolean;
+  onStatusChange?: (jobId: string, newStatus: JobStatus) => void;
 }
 
-export function JobList({ jobs, isLoading = false }: JobListProps) {
+export function JobList({ jobs, isLoading = false, isAdmin = false, onStatusChange }: JobListProps) {
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -37,7 +39,12 @@ export function JobList({ jobs, isLoading = false }: JobListProps) {
   return (
     <div className="space-y-4">
       {jobs.map((job) => (
-        <JobCard key={job.id} job={job} />
+        <JobCard
+          key={job.id}
+          job={job}
+          isAdmin={isAdmin}
+          onStatusChange={onStatusChange}
+        />
       ))}
     </div>
   );

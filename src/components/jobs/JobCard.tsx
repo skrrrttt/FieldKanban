@@ -6,46 +6,25 @@ import {
   Calendar,
   Building2,
   ChevronRight,
-  CheckCircle2,
-  Clock,
-  Archive,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { cn, formatDate } from "@/lib/utils";
-import type { Job } from "@/types";
+import { JobStatusDropdown } from "./JobStatusDropdown";
+import { JOB_STATUS_CONFIG } from "./JobStatusBadge";
+import type { Job, JobStatus } from "@/types";
 
 interface JobCardProps {
   job: Job;
+  isAdmin?: boolean;
+  onStatusChange?: (jobId: string, newStatus: JobStatus) => void;
 }
 
-const statusConfig = {
-  active: {
-    icon: Clock,
-    label: "Active",
-    badgeVariant: "default" as const,
-    badgeClass: "bg-primary/10 text-primary border-primary/20",
-    borderColor: "border-l-primary",
-  },
-  completed: {
-    icon: CheckCircle2,
-    label: "Completed",
-    badgeVariant: "secondary" as const,
-    badgeClass: "bg-accent/10 text-accent border-accent/20",
-    borderColor: "border-l-accent",
-  },
-  archived: {
-    icon: Archive,
-    label: "Archived",
-    badgeVariant: "outline" as const,
-    badgeClass: "bg-muted text-muted-foreground",
-    borderColor: "border-l-muted-foreground/30",
-  },
-};
+export function JobCard({ job, isAdmin = false, onStatusChange }: JobCardProps) {
+  const statusConfig = JOB_STATUS_CONFIG[job.status];
 
-export function JobCard({ job }: JobCardProps) {
-  const status = statusConfig[job.status];
-  const StatusIcon = status.icon;
+  const handleStatusChange = (newStatus: JobStatus) => {
+    onStatusChange?.(job.id, newStatus);
+  };
 
   return (
     <Link href={`/jobs/${job.id}`} className="block group">
@@ -54,20 +33,18 @@ export function JobCard({ job }: JobCardProps) {
           "border-l-4 p-5 transition-all",
           "hover:border-primary/50 hover:shadow-md",
           "touch-manipulation",
-          status.borderColor
+          statusConfig.borderColor
         )}
       >
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
-            {/* Status badge */}
+            {/* Status dropdown/badge */}
             <div className="flex items-center gap-2 mb-3">
-              <Badge
-                variant={status.badgeVariant}
-                className={cn("gap-1.5", status.badgeClass)}
-              >
-                <StatusIcon className="h-3 w-3" />
-                {status.label}
-              </Badge>
+              <JobStatusDropdown
+                job={job}
+                isAdmin={isAdmin}
+                onStatusChange={handleStatusChange}
+              />
             </div>
 
             {/* Title */}
