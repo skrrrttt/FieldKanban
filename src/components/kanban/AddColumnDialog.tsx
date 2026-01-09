@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { createClient } from "@/lib/supabase/client";
+import { useRepository } from "@/lib/data/repository-context";
 
 // Predefined colors for columns
 const COLUMN_COLORS = [
@@ -44,6 +44,7 @@ export function AddColumnDialog({
   const [name, setName] = useState("");
   const [color, setColor] = useState(COLUMN_COLORS[0].value);
   const [saving, setSaving] = useState(false);
+  const repository = useRepository();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -54,27 +55,25 @@ export function AddColumnDialog({
     }
 
     setSaving(true);
-    const supabase = createClient();
 
     try {
       // Get the highest order in this job to add at the end
-      const { data: existingColumns } = await supabase
-        .from("columns")
-        .select("order")
-        .eq("job_id", jobId)
-        .order("order", { ascending: false })
-        .limit(1);
+      const columnsResult = await repository.getColumns(jobId);
+      let newOrder = 0;
+      if (columnsResult.success && columnsResult.data) {
+        newOrder = Math.max(-1, ...columnsResult.data.map((c) => c.order)) + 1;
+      }
 
-      const newOrder = existingColumns?.[0]?.order ?? -1;
-
-      const { error } = await supabase.from("columns").insert({
-        job_id: jobId,
+      const result = await repository.createColumn({
+        jobId,
         name: name.trim(),
         color,
-        order: newOrder + 1,
+        order: newOrder,
       });
 
-      if (error) throw error;
+      if (!result.success) {
+        throw new Error(result.error || "Failed to create column");
+      }
 
       toast.success("Column created", {
         description: `"${name}" column has been added`,

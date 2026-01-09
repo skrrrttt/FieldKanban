@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { createClient } from "@/lib/supabase/client";
+import { useRepository } from "@/lib/data/repository-context";
 import type { TaskPriority } from "@/types";
 
 interface AddTaskDialogProps {
@@ -48,6 +48,7 @@ export function AddTaskDialog({
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<TaskPriority>("medium");
   const [saving, setSaving] = useState(false);
+  const repository = useRepository();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -58,30 +59,30 @@ export function AddTaskDialog({
     }
 
     setSaving(true);
-    const supabase = createClient();
 
     try {
       // Get the highest order in this column to add at the end
-      const { data: existingTasks } = await supabase
-        .from("tasks")
-        .select("order")
-        .eq("column_id", columnId)
-        .order("order", { ascending: false })
-        .limit(1);
+      const tasksResult = await repository.getTasks(jobId);
+      let newOrder = 0;
+      if (tasksResult.success && tasksResult.data) {
+        const columnTasks = tasksResult.data.filter((t) => t.columnId === columnId);
+        newOrder = Math.max(-1, ...columnTasks.map((t) => t.order)) + 1;
+      }
 
-      const newOrder = existingTasks?.[0]?.order ?? -1;
-
-      const { error } = await supabase.from("tasks").insert({
-        job_id: jobId,
-        column_id: columnId,
+      const result = await repository.createTask({
+        jobId,
+        columnId,
         title: title.trim(),
-        description: description.trim() || null,
+        description: description.trim() || undefined,
         priority,
-        order: newOrder + 1,
-        created_by: userId,
+        order: newOrder,
+        createdBy: userId,
+        assignedTo: [],
       });
 
-      if (error) throw error;
+      if (!result.success) {
+        throw new Error(result.error || "Failed to create task");
+      }
 
       toast.success("Task created", {
         description: `"${title}" added to ${columnName}`,

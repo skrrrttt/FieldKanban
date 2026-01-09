@@ -4,6 +4,7 @@ import { AppSidebar, AppHeader } from "@/components/layout";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { useAuth } from "@/lib/hooks/useAuth";
 import { Skeleton } from "@/components/ui/skeleton";
+import { RepositoryProvider } from "@/lib/data/repository-context";
 
 export default function DashboardLayout({
   children,
@@ -42,14 +43,16 @@ export default function DashboardLayout({
   }
 
   return (
-    <SidebarProvider>
-      <AppSidebar />
-      <SidebarInset>
-        <AppHeader />
-        <main className="flex-1 flex flex-col overflow-hidden bg-background">
-          {children}
-        </main>
-      </SidebarInset>
-    </SidebarProvider>
+    <RepositoryProvider>
+      <SidebarProvider>
+        <AppSidebar />
+        <SidebarInset>
+          <AppHeader />
+          <main className="flex-1 flex flex-col overflow-hidden bg-background">
+            {children}
+          </main>
+        </SidebarInset>
+      </SidebarProvider>
+    </RepositoryProvider>
   );
 }

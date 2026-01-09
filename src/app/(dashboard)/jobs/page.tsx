@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Plus, Search, Filter } from "lucide-react";
 import { JobList } from "@/components/jobs";
 import { useAppStore } from "@/lib/store/app-store";
-import { mockRepository } from "@/lib/data/providers/mock";
+import { useRepository } from "@/lib/data/repository-context";
 import { Button } from "@/components/ui/button";
 import type { Job } from "@/types";
 
@@ -16,18 +16,19 @@ export default function JobsPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const currentUser = useAppStore((state) => state.currentUser);
   const isAdmin = currentUser?.role === "admin";
+  const repository = useRepository();
 
   useEffect(() => {
     async function loadJobs() {
       setIsLoading(true);
-      const result = await mockRepository.getJobs();
+      const result = await repository.getJobs();
       if (result.success && result.data) {
         setJobs(result.data);
       }
       setIsLoading(false);
     }
     loadJobs();
-  }, []);
+  }, [repository]);
 
   // Filter jobs
   const filteredJobs = jobs.filter((job) => {

@@ -555,9 +555,44 @@ Desktop (≥ 1024px):
 - [x] Profile auto-creation on signup
 - [x] Session management
 
-#### Phase 4c: Data Layer Integration
-- [ ] Supabase provider implementation
-- [ ] Connect repository to Supabase
+#### Phase 4c: Data Layer Integration (Complete)
+
+**Problem Solved:** App had a hybrid data problem - writes went to Supabase, reads came from mock IndexedDB. Data disappeared on refresh.
+
+**Solution:** Created Supabase Repository Provider implementing the `DataRepository` interface.
+
+**Step 1: Create Supabase Repository Provider**
+- [x] New file: `src/lib/data/providers/supabase.ts` (~450 lines)
+- [x] Implement all DataRepository methods (Jobs, Columns, Tasks, Comments, Files, Users)
+- [x] Add snake_case ↔ camelCase transformation helpers
+
+**Step 2: Create Repository Context**
+- [x] New file: `src/lib/data/repository-context.tsx` (~55 lines)
+- [x] Create `RepositoryProvider` component
+- [x] Create `useRepository()` hook
+
+**Step 3: Add Provider to Dashboard Layout**
+- [x] Modify: `src/app/(dashboard)/layout.tsx`
+- [x] Wrap children with `<RepositoryProvider>`
+
+**Step 4: Update Consumer Components**
+- [x] `src/app/(dashboard)/jobs/page.tsx` - Replace mockRepository with useRepository()
+- [x] `src/app/(dashboard)/jobs/[jobId]/page.tsx` - Replace mockRepository + direct Supabase
+- [x] `src/components/kanban/TaskDetail.tsx` - Replace mockRepository with useRepository()
+- [x] `src/components/kanban/AddTaskDialog.tsx` - Replace direct createClient()
+- [x] `src/components/kanban/AddColumnDialog.tsx` - Replace direct createClient()
+- [x] `src/app/(dashboard)/admin/jobs/new/page.tsx` - Replace direct createClient()
+
+**Testing Checklist:**
+- [ ] Jobs page loads jobs from Supabase
+- [ ] Clicking a job shows its Kanban board with columns/tasks
+- [ ] Add Task creates task that persists on refresh
+- [ ] Add Column creates column that persists on refresh
+- [ ] New Job creates job with default columns
+- [ ] Task detail shows comments
+- [ ] Drag-and-drop updates task position
+
+**Future (after core data working):**
 - [ ] Real-time subscriptions for task updates
 - [ ] Push notifications via Edge Functions
 
@@ -964,3 +999,52 @@ $$;
 - `src/lib/supabase/client.ts` - Env var validation with clear error
 
 **Status:** Magic link authentication working end-to-end
+
+### January 8, 2026 - Phase 4c Data Layer Integration
+
+**Completed:**
+
+1. **Created Supabase Repository Provider** (`src/lib/data/providers/supabase.ts`)
+   - Implemented all `DataRepository` interface methods
+   - Jobs: getJobs, getJob, createJob, updateJob, deleteJob
+   - Columns: getColumns, createColumn, updateColumn, deleteColumn, reorderColumns
+   - Tasks: getTasks, getTasksForUser, getTask, createTask, updateTask, deleteTask, moveTask
+   - Comments: getComments, createComment, deleteComment
+   - Files: getFiles, uploadFile, deleteFile, getFileUrl
+   - Users: getCurrentUser, getUsers
+   - Added snake_case ↔ camelCase transformation helpers
+   - ~450 lines
+
+2. **Created Repository Context** (`src/lib/data/repository-context.tsx`)
+   - `RepositoryProvider` component wraps app with repository instance
+   - `useRepository()` hook for accessing repository in components
+   - ~55 lines
+
+3. **Updated Dashboard Layout**
+   - Wrapped children with `<RepositoryProvider>` in `src/app/(dashboard)/layout.tsx`
+
+4. **Updated All Consumer Components**
+   - `src/app/(dashboard)/jobs/page.tsx` - Jobs list now loads from Supabase
+   - `src/app/(dashboard)/jobs/[jobId]/page.tsx` - Kanban board uses repository
+   - `src/components/kanban/TaskDetail.tsx` - Comments/files from Supabase
+   - `src/components/kanban/AddTaskDialog.tsx` - Creates tasks via repository
+   - `src/components/kanban/AddColumnDialog.tsx` - Creates columns via repository
+   - `src/app/(dashboard)/admin/jobs/new/page.tsx` - Creates jobs via repository
+
+**Architecture Pattern:**
+```
+UI Component
+    ↓ useRepository()
+Repository Context (React Context)
+    ↓
+SupabaseRepository (implements DataRepository)
+    ↓ snake_case ↔ camelCase
+Supabase Client → PostgreSQL
+```
+
+**Build Status:** Compiles successfully with no errors
+
+**Next Steps:**
+- Test all features end-to-end on Vercel preview
+- Verify data persists on refresh
+- Add real-time subscriptions (future)

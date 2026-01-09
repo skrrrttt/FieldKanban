@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { cn, formatRelativeTime, formatDate } from "@/lib/utils";
 import { CommentList, CommentForm } from "@/components/comments";
-import { mockRepository } from "@/lib/data/providers/mock";
+import { useRepository } from "@/lib/data/repository-context";
 import type { Task, TaskPriority, Comment, User as UserType, FileAttachment } from "@/types";
 
 interface TaskDetailProps {
@@ -45,12 +45,13 @@ function formatDuration(minutes: number): string {
   return mins > 0 ? `${hours}h ${mins}m` : `${hours} hours`;
 }
 
-export function TaskDetail({ task, isOpen, onClose, onUpdate }: TaskDetailProps) {
+export function TaskDetail({ task, isOpen, onClose, onUpdate: _onUpdate }: TaskDetailProps) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [files, setFiles] = useState<FileAttachment[]>([]);
   const [users, setUsers] = useState<Record<string, UserType>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"details" | "comments" | "files">("details");
+  const repository = useRepository();
 
   const priority = task.priority || "medium";
   const PriorityIcon = priorityConfig[priority].icon;
@@ -63,9 +64,9 @@ export function TaskDetail({ task, isOpen, onClose, onUpdate }: TaskDetailProps)
     async function loadData() {
       setIsLoading(true);
       const [commentsResult, filesResult, usersResult] = await Promise.all([
-        mockRepository.getComments(task.id),
-        mockRepository.getFiles(task.id),
-        mockRepository.getUsers(),
+        repository.getComments(task.id),
+        repository.getFiles(task.id),
+        repository.getUsers(),
       ]);
 
       if (commentsResult.success && commentsResult.data) {
@@ -83,15 +84,15 @@ export function TaskDetail({ task, isOpen, onClose, onUpdate }: TaskDetailProps)
     }
 
     loadData();
-  }, [task.id, isOpen]);
+  }, [task.id, isOpen, repository]);
 
   // Handle adding a comment
   const handleAddComment = useCallback(
     async (content: string) => {
-      const currentUser = await mockRepository.getCurrentUser();
+      const currentUser = await repository.getCurrentUser();
       if (!currentUser.success || !currentUser.data) return;
 
-      const result = await mockRepository.createComment({
+      const result = await repository.createComment({
         taskId: task.id,
         userId: currentUser.data.id,
         content,
@@ -101,7 +102,7 @@ export function TaskDetail({ task, isOpen, onClose, onUpdate }: TaskDetailProps)
         setComments((prev) => [...prev, result.data!]);
       }
     },
-    [task.id]
+    [task.id, repository]
   );
 
   // Handle escape key

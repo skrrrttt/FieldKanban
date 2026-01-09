@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/lib/hooks/useAuth";
+import { useRepository } from "@/lib/data/repository-context";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +31,7 @@ export default function NewJobPage() {
     client_name: "",
     address: "",
   });
+  const repository = useRepository();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -46,48 +47,48 @@ export default function NewJobPage() {
     }
 
     setSaving(true);
-    const supabase = createClient();
 
     try {
       // Create the job
-      const { data: job, error: jobError } = await supabase
-        .from("jobs")
-        .insert({
-          title: formData.title.trim(),
-          description: formData.description.trim() || null,
-          client_name: formData.client_name.trim() || null,
-          address: formData.address.trim() || null,
-          status: "active",
-          created_by: user.id,
-        })
-        .select()
-        .single();
+      const jobResult = await repository.createJob({
+        title: formData.title.trim(),
+        description: formData.description.trim() || undefined,
+        clientName: formData.client_name.trim() || undefined,
+        address: formData.address.trim() || undefined,
+        status: "active",
+        createdBy: user.id,
+      });
 
-      if (jobError) throw jobError;
-
-      // Create default columns for the job
-      const columns = DEFAULT_COLUMNS.map((col) => ({
-        job_id: job.id,
-        name: col.name,
-        order: col.order,
-        color: col.color,
-      }));
-
-      const { error: columnsError } = await supabase
-        .from("columns")
-        .insert(columns);
-
-      if (columnsError) {
-        console.error("Error creating columns:", columnsError);
-        // Job was created, but columns failed - show warning
-        toast.warning("Job created but columns failed", {
-          description: "You may need to add columns manually.",
-        });
+      if (!jobResult.success || !jobResult.data) {
+        throw new Error(jobResult.error || "Failed to create job");
       }
 
-      toast.success("Job created", {
-        description: `${formData.title} has been created with default columns.`,
-      });
+      const job = jobResult.data;
+
+      // Create default columns for the job
+      let columnsCreated = true;
+      for (const col of DEFAULT_COLUMNS) {
+        const result = await repository.createColumn({
+          jobId: job.id,
+          name: col.name,
+          order: col.order,
+          color: col.color,
+        });
+        if (!result.success) {
+          columnsCreated = false;
+          console.error("Error creating column:", result.error);
+        }
+      }
+
+      if (!columnsCreated) {
+        toast.warning("Job created but some columns failed", {
+          description: "You may need to add columns manually.",
+        });
+      } else {
+        toast.success("Job created", {
+          description: `${formData.title} has been created with default columns.`,
+        });
+      }
 
       router.push(`/jobs/${job.id}`);
     } catch (error) {
