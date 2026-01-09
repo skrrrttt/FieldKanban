@@ -1,20 +1,47 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { HardHat, Menu, Wifi, WifiOff, RefreshCw, User, ChevronDown } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { HardHat, Menu, Wifi, WifiOff, RefreshCw, ChevronDown, Settings, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useOffline } from "@/lib/hooks/useOffline";
 import { useAppStore } from "@/lib/store/app-store";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { createClient } from "@/lib/supabase/client";
 
 interface HeaderProps {
   onMenuClick?: () => void;
 }
 
+function getInitials(name: string): string {
+  return name
+    .split(" ")
+    .map((word) => word[0])
+    .join("")
+    .toUpperCase()
+    .slice(0, 2);
+}
+
 export function Header({ onMenuClick }: HeaderProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const { isOnline, pendingOperations } = useOffline();
   const currentUser = useAppStore((state) => state.currentUser);
+  const setCurrentUser = useAppStore((state) => state.setCurrentUser);
+
+  const handleSignOut = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    setCurrentUser(null);
+    router.push("/login");
+  };
 
   return (
     <header className="bg-gradient-to-r from-blue-900 to-blue-800 text-white sticky top-0 z-50 safe-area-inset-top shadow-lg">
@@ -88,16 +115,51 @@ export function Header({ onMenuClick }: HeaderProps) {
 
           {/* User Menu */}
           {currentUser ? (
-            <button className="flex items-center gap-2 p-2 rounded-lg hover:bg-white/10 transition-colors min-h-[44px]">
-              <div className="w-9 h-9 rounded-full bg-blue-600 border-2 border-blue-400 flex items-center justify-center">
-                <User className="w-5 h-5" />
-              </div>
-              <div className="hidden sm:block text-left">
-                <p className="text-sm font-medium leading-tight">{currentUser.name}</p>
-                <p className="text-xs text-blue-300 capitalize">{currentUser.role}</p>
-              </div>
-              <ChevronDown className="w-4 h-4 text-blue-300 hidden sm:block" />
-            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center gap-2 p-2 rounded-lg hover:bg-white/10 transition-colors min-h-[44px]">
+                  <div className="w-9 h-9 rounded-full bg-blue-600 border-2 border-blue-400 flex items-center justify-center overflow-hidden">
+                    {currentUser.avatarUrl ? (
+                      <img
+                        src={currentUser.avatarUrl}
+                        alt={currentUser.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <span className="text-sm font-medium">{getInitials(currentUser.name)}</span>
+                    )}
+                  </div>
+                  <div className="hidden sm:block text-left">
+                    <p className="text-sm font-medium leading-tight">{currentUser.name}</p>
+                    <p className="text-xs text-blue-300 capitalize">{currentUser.role}</p>
+                  </div>
+                  <ChevronDown className="w-4 h-4 text-blue-300 hidden sm:block" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>
+                  <div className="flex flex-col space-y-1">
+                    <p className="text-sm font-medium">{currentUser.name}</p>
+                    <p className="text-xs text-muted-foreground">{currentUser.email}</p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild>
+                  <Link href="/settings" className="flex items-center cursor-pointer">
+                    <Settings className="w-4 h-4 mr-2" />
+                    Settings
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onClick={handleSignOut}
+                  className="text-destructive focus:text-destructive cursor-pointer"
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Sign Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           ) : (
             <Link
               href="/login"

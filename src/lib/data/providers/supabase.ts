@@ -14,6 +14,8 @@ import type {
   Comment,
   FileAttachment,
   User,
+  UserPreferences,
+  UserPreferencesUpdate,
   ApiResponse,
 } from "@/types";
 import type { Database, Tables } from "@/types/supabase";
@@ -29,6 +31,7 @@ type DbTask = Tables<"tasks">;
 type DbComment = Tables<"comments">;
 type DbFile = Tables<"file_attachments">;
 type DbProfile = Tables<"profiles">;
+type DbUserPreferences = Tables<"user_preferences">;
 
 // ============================================
 // Transformation Functions (snake_case → camelCase)
@@ -110,6 +113,18 @@ function toUser(row: DbProfile): User {
     role: row.role,
     avatarUrl: row.avatar_url ?? undefined,
     createdAt: new Date(row.created_at),
+  };
+}
+
+function toUserPreferences(row: DbUserPreferences): UserPreferences {
+  return {
+    id: row.id,
+    userId: row.user_id,
+    emailOnTaskAssigned: row.email_on_task_assigned,
+    emailOnCommentMention: row.email_on_comment_mention,
+    emailOnTaskDueSoon: row.email_on_task_due_soon,
+    createdAt: new Date(row.created_at),
+    updatedAt: new Date(row.updated_at),
   };
 }
 
@@ -655,6 +670,163 @@ export class SupabaseRepository implements DataRepository {
 
     if (error) return errorResponse(error.message);
     return successResponse(data.map(toUser));
+  }
+
+  async updateUser(
+    userId: string,
+    updates: Partial<Pick<User, "name" | "avatarUrl">>
+  ): Promise<ApiResponse<User>> {
+    const updateData: Partial<Database["public"]["Tables"]["profiles"]["Update"]> = {};
+
+    if (updates.name !== undefined) updateData.name = updates.name;
+    if (updates.avatarUrl !== undefined) updateData.avatar_url = updates.avatarUrl;
+
+    const { data, error } = await this.supabase
+      .from("profiles")
+      .update(updateData)
+      .eq("id", userId)
+      .select()
+      .single();
+
+    if (error) return errorResponse(error.message);
+    return successResponse(toUser(data));
+  }
+
+  // ============================================
+  // User Preferences
+  // ============================================
+  async getUserPreferences(userId: string): Promise<ApiResponse<UserPreferences>> {
+    const { data, error } = await this.supabase
+      .from("user_preferences")
+      .select("*")
+      .eq("user_id", userId)
+      .single();
+
+    // If no preferences exist, create default ones
+    if (error && error.code === "PGRST116") {
+      const { data: newPrefs, error: insertError } = await this.supabase
+        .from("user_preferences")
+        .insert({
+          user_id: userId,
+          email_on_task_assigned: true,
+          email_on_comment_mention: true,
+          email_on_task_due_soon: true,
+        })
+        .select()
+        .single();
+
+      if (insertError) return errorResponse(insertError.message);
+      return successResponse(toUserPreferences(newPrefs));
+    }
+
+    if (error) return errorResponse(error.message);
+    return successResponse(toUserPreferences(data));
+  }
+
+  async updateUserPreferences(
+    userId: string,
+    updates: UserPreferencesUpdate
+  ): Promise<ApiResponse<UserPreferences>> {
+    const updateData: Partial<Database["public"]["Tables"]["user_preferences"]["Update"]> = {};
+
+    if (updates.emailOnTaskAssigned !== undefined) {
+      updateData.email_on_task_assigned = updates.emailOnTaskAssigned;
+    }
+    if (updates.emailOnCommentMention !== undefined) {
+      updateData.email_on_comment_mention = updates.emailOnCommentMention;
+    }
+    if (updates.emailOnTaskDueSoon !== undefined) {
+      updateData.email_on_task_due_soon = updates.emailOnTaskDueSoon;
+    }
+
+    // Upsert: update if exists, insert if not
+    const { data: existing } = await this.supabase
+      .from("user_preferences")
+      .select("id")
+      .eq("user_id", userId)
+      .single();
+
+    if (existing) {
+      const { data, error } = await this.supabase
+        .from("user_preferences")
+        .update(updateData)
+        .eq("user_id", userId)
+        .select()
+        .single();
+
+      if (error) return errorResponse(error.message);
+      return successResponse(toUserPreferences(data));
+    } else {
+      const { data, error } = await this.supabase
+        .from("user_preferences")
+        .insert({
+          user_id: userId,
+          email_on_task_assigned: updates.emailOnTaskAssigned ?? true,
+          email_on_comment_mention: updates.emailOnCommentMention ?? true,
+          email_on_task_due_soon: updates.emailOnTaskDueSoon ?? true,
+        })
+        .select()
+        .single();
+
+      if (error) return errorResponse(error.message);
+      return successResponse(toUserPreferences(data));
+    }
+  }
+
+  // ============================================
+  // Avatar Upload
+  // ============================================
+  async uploadAvatar(
+    userId: string,
+    file: Blob,
+    fileName: string
+  ): Promise<ApiResponse<string>> {
+    // Validate file size (2MB max)
+    const MAX_SIZE = 2 * 1024 * 1024; // 2MB
+    if (file.size > MAX_SIZE) {
+      return errorResponse("File size exceeds 2MB limit");
+    }
+
+    // Validate file type
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+    if (!allowedTypes.includes(file.type)) {
+      return errorResponse("Invalid file type. Allowed: JPG, PNG, WebP");
+    }
+
+    // Generate storage path: userId/avatar.ext
+    const fileExt = fileName.split(".").pop() || "jpg";
+    const storagePath = `${userId}/avatar.${fileExt}`;
+
+    // Delete existing avatar if present (ignore errors)
+    await this.supabase.storage.from("avatars").remove([storagePath]);
+
+    // Upload new avatar
+    const { error: uploadError } = await this.supabase.storage
+      .from("avatars")
+      .upload(storagePath, file, {
+        contentType: file.type,
+        upsert: true,
+      });
+
+    if (uploadError) return errorResponse(uploadError.message);
+
+    // Get public URL
+    const { data: urlData } = this.supabase.storage
+      .from("avatars")
+      .getPublicUrl(storagePath);
+
+    // Add cache-busting query param
+    const publicUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+
+    // Update profile with new avatar URL
+    const { error: updateError } = await this.supabase
+      .from("profiles")
+      .update({ avatar_url: publicUrl })
+      .eq("id", userId);
+
+    if (updateError) return errorResponse(updateError.message);
+
+    return successResponse(publicUrl);
   }
 }
 

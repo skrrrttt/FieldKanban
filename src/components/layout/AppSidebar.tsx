@@ -42,6 +42,11 @@ const mainNavItems = [
     url: "/jobs",
     icon: Briefcase,
   },
+  {
+    title: "Settings",
+    url: "/settings",
+    icon: Settings,
+  },
 ];
 
 const adminNavItems = [
@@ -200,9 +205,11 @@ export function AppSidebar() {
                 align="end"
                 sideOffset={4}
               >
-                <DropdownMenuItem className="gap-2">
-                  <Settings className="size-4" />
-                  <span>Account settings</span>
+                <DropdownMenuItem asChild className="gap-2 cursor-pointer">
+                  <Link href="/settings">
+                    <Settings className="size-4" />
+                    <span>Account settings</span>
+                  </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem

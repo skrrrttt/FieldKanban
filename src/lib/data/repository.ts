@@ -14,6 +14,8 @@ import type {
   Comment,
   FileAttachment,
   User,
+  UserPreferences,
+  UserPreferencesUpdate,
   ApiResponse,
 } from "@/types";
 
@@ -58,6 +60,14 @@ export interface DataRepository {
   // Users
   getCurrentUser(): Promise<ApiResponse<User>>;
   getUsers(): Promise<ApiResponse<User[]>>;
+  updateUser(userId: string, updates: Partial<Pick<User, "name" | "avatarUrl">>): Promise<ApiResponse<User>>;
+
+  // User Preferences
+  getUserPreferences(userId: string): Promise<ApiResponse<UserPreferences>>;
+  updateUserPreferences(userId: string, updates: UserPreferencesUpdate): Promise<ApiResponse<UserPreferences>>;
+
+  // Avatar Upload
+  uploadAvatar(userId: string, file: Blob, fileName: string): Promise<ApiResponse<string>>;
 }
 
 // ============================================

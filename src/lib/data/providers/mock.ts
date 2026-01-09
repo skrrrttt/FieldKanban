@@ -16,6 +16,8 @@ import type {
   Comment,
   FileAttachment,
   User,
+  UserPreferences,
+  UserPreferencesUpdate,
   ApiResponse,
 } from "@/types";
 import * as db from "../local-db";
@@ -432,6 +434,113 @@ export class MockRepository implements DataRepository {
     await this.ensureInitialized();
     const users = await db.getAll("users");
     return successResponse(users);
+  }
+
+  async updateUser(
+    userId: string,
+    updates: Partial<Pick<User, "name" | "avatarUrl">>
+  ): Promise<ApiResponse<User>> {
+    await this.ensureInitialized();
+    const existing = await db.getById("users", userId);
+    if (!existing) return errorResponse("User not found");
+    const updated: User = { ...existing, ...updates };
+    await db.put("users", updated);
+
+    // Update current user metadata if it's the same user
+    const currentUser = await db.getMetadata<User>("currentUser");
+    if (currentUser?.id === userId) {
+      await db.setMetadata("currentUser", updated);
+    }
+
+    return successResponse(updated);
+  }
+
+  // User Preferences (stored in metadata with key prefix)
+  async getUserPreferences(userId: string): Promise<ApiResponse<UserPreferences>> {
+    await this.ensureInitialized();
+
+    // Try to get existing preferences from metadata
+    const prefsKey = `userPreferences_${userId}`;
+    let prefs = await db.getMetadata<UserPreferences>(prefsKey);
+
+    // If no preferences exist, create default ones
+    if (!prefs) {
+      prefs = {
+        id: generateId(),
+        userId,
+        emailOnTaskAssigned: true,
+        emailOnCommentMention: true,
+        emailOnTaskDueSoon: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      await db.setMetadata(prefsKey, prefs);
+    }
+
+    return successResponse(prefs);
+  }
+
+  async updateUserPreferences(
+    userId: string,
+    updates: UserPreferencesUpdate
+  ): Promise<ApiResponse<UserPreferences>> {
+    await this.ensureInitialized();
+
+    // Get or create preferences
+    const result = await this.getUserPreferences(userId);
+    if (!result.success || !result.data) {
+      return errorResponse("Failed to get user preferences");
+    }
+
+    const updated: UserPreferences = {
+      ...result.data,
+      ...updates,
+      updatedAt: new Date(),
+    };
+
+    const prefsKey = `userPreferences_${userId}`;
+    await db.setMetadata(prefsKey, updated);
+
+    return successResponse(updated);
+  }
+
+  // Avatar Upload (mock - just creates a local blob URL)
+  async uploadAvatar(
+    userId: string,
+    file: Blob,
+    _fileName: string
+  ): Promise<ApiResponse<string>> {
+    await this.ensureInitialized();
+
+    // Validate file size (2MB max)
+    const MAX_SIZE = 2 * 1024 * 1024;
+    if (file.size > MAX_SIZE) {
+      return errorResponse("File size exceeds 2MB limit");
+    }
+
+    // Validate file type
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+    if (!allowedTypes.includes(file.type)) {
+      return errorResponse("Invalid file type. Allowed: JPG, PNG, WebP");
+    }
+
+    // Create local blob URL (mock implementation)
+    const url = URL.createObjectURL(file);
+
+    // Update user's avatar URL
+    const user = await db.getById("users", userId);
+    if (user) {
+      user.avatarUrl = url;
+      await db.put("users", user);
+
+      // Update current user metadata if it's the same user
+      const currentUser = await db.getMetadata<User>("currentUser");
+      if (currentUser?.id === userId) {
+        await db.setMetadata("currentUser", user);
+      }
+    }
+
+    return successResponse(url);
   }
 }
 

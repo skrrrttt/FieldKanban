@@ -13,6 +13,23 @@ export interface User {
 }
 
 // ============================================
+// User Preferences Types
+// ============================================
+export interface UserPreferences {
+  id: string;
+  userId: string;
+  emailOnTaskAssigned: boolean;
+  emailOnCommentMention: boolean;
+  emailOnTaskDueSoon: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type UserPreferencesUpdate = Partial<
+  Pick<UserPreferences, "emailOnTaskAssigned" | "emailOnCommentMention" | "emailOnTaskDueSoon">
+>;
+
+// ============================================
 // Job Types
 // ============================================
 export type JobStatus = "active" | "completed" | "archived";
