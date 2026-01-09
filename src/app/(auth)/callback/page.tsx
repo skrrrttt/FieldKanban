@@ -47,8 +47,9 @@ function CallbackHandler() {
         // Small delay to ensure cookies are set
         await new Promise(resolve => setTimeout(resolve, 100));
 
-        // Get the login intent (user or admin)
-        const intent = searchParams.get("intent") || "user";
+        // Get the login intent from localStorage (query params get lost during OAuth)
+        const intent = localStorage.getItem("login_intent") || "user";
+        localStorage.removeItem("login_intent"); // Clean up
 
         // Fetch user profile to check role
         const { data: { user } } = await supabase.auth.getUser();

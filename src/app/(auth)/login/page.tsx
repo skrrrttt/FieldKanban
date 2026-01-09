@@ -61,10 +61,13 @@ function LoginForm({ intent }: LoginFormProps) {
     try {
       const supabase = createClient();
 
+      // Store intent in localStorage (query params get lost during OAuth flow)
+      localStorage.setItem("login_intent", intent);
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/callback?intent=${intent}`,
+          redirectTo: `${window.location.origin}/callback`,
         },
       });
 
