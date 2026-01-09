@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { Plus, Search, Filter } from "lucide-react";
 import { JobList } from "@/components/jobs";
 import { useAppStore } from "@/lib/store/app-store";
 import { useRepository } from "@/lib/data/repository-context";
+import { useDebounce } from "@/lib/hooks/useDebounce";
 import { Button } from "@/components/ui/button";
 import type { Job } from "@/types";
 
@@ -17,6 +18,9 @@ export default function JobsPage() {
   const currentUser = useAppStore((state) => state.currentUser);
   const isAdmin = currentUser?.role === "admin";
   const repository = useRepository();
+
+  // Debounce search query to avoid filtering on every keystroke
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
   useEffect(() => {
     async function loadJobs() {
@@ -30,18 +34,20 @@ export default function JobsPage() {
     loadJobs();
   }, [repository]);
 
-  // Filter jobs
-  const filteredJobs = jobs.filter((job) => {
-    const matchesSearch =
-      searchQuery === "" ||
-      job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      job.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      job.address?.toLowerCase().includes(searchQuery.toLowerCase());
+  // Memoized filter to prevent recalculation on every render
+  const filteredJobs = useMemo(() => {
+    return jobs.filter((job) => {
+      const matchesSearch =
+        debouncedSearchQuery === "" ||
+        job.title.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
+        job.description?.toLowerCase().includes(debouncedSearchQuery.toLowerCase()) ||
+        job.address?.toLowerCase().includes(debouncedSearchQuery.toLowerCase());
 
-    const matchesStatus = statusFilter === "all" || job.status === statusFilter;
+      const matchesStatus = statusFilter === "all" || job.status === statusFilter;
 
-    return matchesSearch && matchesStatus;
-  });
+      return matchesSearch && matchesStatus;
+    });
+  }, [jobs, debouncedSearchQuery, statusFilter]);
 
   return (
     <div className="flex-1 overflow-auto">

@@ -1,460 +1,151 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+> **IMPORTANT**: Always read this file before starting any new implementation work. Review the UI Design System, architecture patterns, and current status to ensure consistency with established standards.
+
+This file provides guidance to Claude Code when working with this repository.
 
 ## Project Overview
 
-FieldKanban is a PWA Kanban app for field construction operations. Field users view and update assigned tasks, upload photos, and add comments. Admins create jobs, tasks, and customize Kanban columns.
+FieldKanban is a Kanban app for field construction operations. Field users view and update assigned tasks, upload photos, and add comments. Admins create jobs, tasks, and customize Kanban columns.
 
-**Key Features:**
-- Offline-first architecture with IndexedDB
-- PWA for web, iOS, and tablet
-- Google OAuth authentication (single-click sign in)
-- Admin-customizable Kanban columns per job
-- Photo upload from field devices
-- Push notifications for task updates
-
-## Target Use Case Context
-
-Primary user: **Pavement marking company** (but app remains generic for field construction)
-
-Understanding the real-world use case:
-- **Crews** work at job sites (parking lots, roads, intersections)
-- **Tasks** include layout, striping, stenciling, reflector installation
-- **Photos** document before/after of completed work
-- **Location** = addresses, lot names, mile markers
-- **Specs** = DOT standards, line widths, paint types
-- **Connectivity** often poor at remote job sites
-
-This context reinforces why these priorities matter:
-- **Offline-first** - critical for remote job sites with poor cell service
-- **Photo capture** - documenting completed work for billing/verification
-- **Mobile/tablet optimized** - devices used in trucks and field
-- **Simple status updates** - quick task completion marking from the field
-- **Durable touch targets** - usable with work gloves
-
-Keep the app generic ("field construction") but design decisions should consider this use case.
+**Target Use Case:** Pavement marking company (but app remains generic for field construction)
+- Crews work at job sites with poor connectivity
+- Need to document work with photos
+- Mobile/tablet devices used in field
+- Simple task updates from the field
 
 ## Commands
 
 ```bash
-npm run dev      # Start development server (http://localhost:3000)
+npm run dev      # Start development server
 npm run build    # Build for production
-npm run start    # Start production server
 npm run lint     # Run ESLint
+npm run test     # Run Playwright tests
 ```
 
 ## Tech Stack
 
 - **Framework**: Next.js 15 with App Router
 - **Language**: TypeScript (strict mode)
-- **Styling**: Tailwind CSS
+- **Styling**: Tailwind CSS + shadcn/ui
 - **State**: Zustand
-- **Offline Storage**: IndexedDB via `idb`
-- **Drag & Drop**: @dnd-kit
 - **Backend**: Supabase (Postgres, Auth, Storage)
+- **Drag & Drop**: @dnd-kit
 
 ## Project Structure
 
 ```
 src/
-├── app/                      # Next.js App Router
+├── app/
 │   ├── (auth)/              # Auth routes (Google OAuth)
-│   │   ├── login/           # Google sign-in button
-│   │   ├── callback/        # OAuth callback handler (client-side)
-│   │   └── verify/          # Legacy, redirects to login
+│   │   ├── login/           # Google sign-in
+│   │   └── callback/        # OAuth callback
 │   ├── (dashboard)/         # Protected routes
-│   │   ├── layout.tsx       # Dashboard layout with nav
-│   │   ├── page.tsx         # Home/overview
-│   │   ├── jobs/
-│   │   │   ├── page.tsx     # Jobs list
-│   │   │   └── [jobId]/
-│   │   │       ├── page.tsx # Kanban board for job
-│   │   │       └── tasks/[taskId]/page.tsx
+│   │   ├── jobs/            # Jobs list & Kanban boards
 │   │   └── admin/           # Admin-only routes
-│   │       ├── columns/     # Manage Kanban columns
-│   │       ├── users/       # Manage users
-│   │       └── jobs/new/    # Create jobs
-│   ├── layout.tsx
-│   └── page.tsx
+│   └── api/                 # API routes
 ├── components/
-│   ├── ui/                  # Base UI components
-│   ├── kanban/
-│   │   ├── Board.tsx        # Main Kanban board
-│   │   ├── Column.tsx       # Draggable column
-│   │   ├── TaskCard.tsx     # Draggable task card
-│   │   └── TaskDetail.tsx   # Task detail modal/page
-│   ├── jobs/
-│   │   ├── JobList.tsx
-│   │   └── JobCard.tsx
-│   ├── files/
-│   │   ├── FileUpload.tsx   # Drag-drop + camera
-│   │   ├── FileViewer.tsx   # PDF/image viewer
-│   │   └── PhotoCapture.tsx # Camera integration
-│   ├── comments/
-│   │   ├── CommentList.tsx
-│   │   └── CommentForm.tsx
-│   └── layout/
-│       ├── Header.tsx
-│       ├── Sidebar.tsx
-│       └── OfflineIndicator.tsx
+│   ├── ui/                  # shadcn/ui components
+│   ├── kanban/              # Board, Column, TaskCard, TaskDetail
+│   ├── jobs/                # JobList, JobCard
+│   └── layout/              # Header, Sidebar
 ├── lib/
-│   ├── data/                # Data layer abstraction
-│   │   ├── repository.ts    # Repository interface
-│   │   ├── local-db.ts      # IndexedDB operations
+│   ├── data/
+│   │   ├── repository.ts           # DataRepository interface
+│   │   ├── repository-context.tsx  # React context + useRepository hook
 │   │   └── providers/
-│   │       ├── mock.ts      # Mock provider for dev
-│   │       └── supabase.ts  # Supabase provider (later)
-│   ├── hooks/
-│   │   ├── useOffline.ts    # Offline detection
-│   │   ├── useSync.ts       # Sync status
-│   │   └── useAuth.ts       # Auth state
-│   ├── store/
-│   │   └── app-store.ts     # Zustand state
-│   └── utils.ts
-├── types/
-│   └── index.ts             # All TypeScript interfaces
-└── public/
-    └── manifest.json        # PWA manifest
+│   │       ├── mock.ts             # Mock data (dev only)
+│   │       └── supabase.ts         # Supabase implementation
+│   ├── supabase/            # Supabase client utilities
+│   ├── hooks/               # useAuth, useOffline
+│   └── store/               # Zustand store
+└── types/                   # TypeScript interfaces
 ```
 
 ## Architecture
 
-### Data Layer (`src/lib/data/`)
-- `repository.ts` - Abstract interface for data operations (allows backend swapping)
-- `local-db.ts` - IndexedDB storage for offline support
-- `providers/mock.ts` - Mock data provider for development
-- `providers/supabase.ts` - Supabase provider (to be implemented)
-
-### State Management (`src/lib/store/`)
-- `app-store.ts` - Zustand store for app state (user, jobs, tasks, columns)
-
-### Types (`src/types/`)
-- `index.ts` - All TypeScript interfaces (Job, Task, Column, Comment, FileAttachment, User, SyncOperation)
-
-### Key Data Flow
-1. UI components read from Zustand store
-2. Store is populated from repository (mock or Supabase)
-3. All data is cached in IndexedDB for offline access
-4. Offline changes are queued in syncQueue and synced when online
-
-### Offline Architecture
-- **Sync Queue**: Operations queued locally, processed FIFO when online
-- **Conflict Resolution**:
-  - Last-write-wins for simple fields (status, title)
-  - Merge for comments (append, don't overwrite)
-  - Server-wins for admin changes to columns/structure
-  - Notify user when their offline change conflicts
-
-### Key Components
-- **Kanban Board**: @dnd-kit drag-and-drop, optimistic updates, offline visual feedback
-- **Photo Capture**: Device camera via `navigator.mediaDevices`, store in IndexedDB, queue for upload
-- **File Viewer**: PDF viewing, image zoom/pan, offline caching
-
-## Backend Architecture (Supabase)
-
-### Database Schema
-
+### Data Flow
 ```
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│    profiles     │     │      jobs       │     │    columns      │
-├─────────────────┤     ├─────────────────┤     ├─────────────────┤
-│ id (PK, FK auth)│◄────│ created_by (FK) │     │ id (PK)         │
-│ email           │     │ id (PK)         │◄────│ job_id (FK)     │
-│ name            │     │ title           │     │ name            │
-│ role (enum)     │     │ description     │     │ order           │
-│ avatar_url      │     │ client_name     │     │ color           │
-│ created_at      │     │ address         │     │ created_at      │
-│ updated_at      │     │ status (enum)   │     └─────────────────┘
-└─────────────────┘     │ created_at      │
-        │               │ updated_at      │
-        │               └─────────────────┘
-        │                       │
-        ▼                       ▼
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│ job_assignments │     │     tasks       │     │task_assignments │
-├─────────────────┤     ├─────────────────┤     ├─────────────────┤
-│ id (PK)         │     │ id (PK)         │◄────│ task_id (FK)    │
-│ job_id (FK)     │     │ job_id (FK)     │     │ user_id (FK)    │
-│ user_id (FK)    │     │ column_id (FK)  │     │ assigned_at     │
-│ assigned_by (FK)│     │ title           │     │ id (PK)         │
-│ assigned_at     │     │ description     │     └─────────────────┘
-└─────────────────┘     │ priority (enum) │
-                        │ due_date        │
-                        │ location        │
-                        │ duration        │
-                        │ spec_reference  │
-                        │ order           │
-                        │ version         │  ◄── Optimistic locking
-                        │ created_by (FK) │
-                        │ created_at      │
-                        │ updated_at      │
-                        └─────────────────┘
-                                │
-                ┌───────────────┴───────────────┐
-                ▼                               ▼
-        ┌─────────────────┐             ┌─────────────────┐
-        │    comments     │             │file_attachments │
-        ├─────────────────┤             ├─────────────────┤
-        │ id (PK)         │             │ id (PK)         │
-        │ task_id (FK)    │             │ task_id (FK)    │
-        │ user_id (FK)    │             │ uploaded_by (FK)│
-        │ content         │             │ name            │
-        │ created_at      │             │ storage_path    │
-        └─────────────────┘             │ mime_type       │
-                                        │ size            │
-                                        │ type (enum)     │
-                                        │ sync_status     │
-                                        │ uploaded_at     │
-                                        └─────────────────┘
-
-┌─────────────────┐
-│push_subscriptions│
-├─────────────────┤
-│ id (PK)         │
-│ user_id (FK)    │
-│ endpoint        │
-│ p256dh          │
-│ auth            │
-│ created_at      │
-└─────────────────┘
+UI Component
+    ↓ useRepository()
+RepositoryProvider (React Context)
+    ↓
+SupabaseRepository (implements DataRepository)
+    ↓ snake_case ↔ camelCase
+Supabase Client → PostgreSQL
 ```
 
-### Enums
+### Key Patterns
+- **Repository Pattern**: All data operations go through `useRepository()` hook
+- **Type Safety**: Database uses snake_case, app uses camelCase with transformation helpers
+- **Auth**: Google OAuth via Supabase, session in cookies
 
-| Enum | Values |
-|------|--------|
-| `user_role` | `admin`, `field` |
-| `job_status` | `active`, `completed`, `archived` |
-| `task_priority` | `low`, `medium`, `high`, `urgent` |
-| `file_type` | `image`, `document` |
-| `sync_status` | `synced`, `pending`, `error` |
+## Database Schema
 
-### RLS Policy Structure
+8 tables in Supabase:
+- `profiles` - User profiles (synced from auth.users)
+- `jobs` - Construction jobs
+- `columns` - Kanban columns per job
+- `tasks` - Tasks within columns
+- `task_assignments` - User-task assignments
+- `comments` - Task comments
+- `file_attachments` - Uploaded files
+- `job_assignments` - User-job assignments
 
-**Admin users** (role = 'admin'):
-- Full CRUD on all tables
-- Can assign users to jobs and tasks
-- Can manage columns
-
-**Field users** (role = 'field'):
-- Read jobs they're assigned to (via `job_assignments`)
-- Read tasks in their assigned jobs
-- Update tasks they're assigned to (via `task_assignments`)
-- Create comments on accessible tasks
-- Upload files to accessible tasks
-- Read own profile, update limited fields
-
-**Helper Functions** (defined in database):
-```sql
-is_admin()                    -- Returns true if current user is admin
-is_assigned_to_job(job_uuid)  -- Returns true if user assigned to job
-is_assigned_to_task(task_uuid) -- Returns true if user assigned to task
-can_access_task(task_uuid)    -- Returns true if admin OR assigned to task's job
-```
-
-### Authentication Strategy
-
-**Google OAuth Flow:**
-1. User clicks "Continue with Google" on `/login`
-2. Supabase redirects to Google OAuth consent screen
-3. User authenticates with Google
-4. Google redirects back to Supabase callback
-5. Supabase redirects to `/callback` with auth code
-6. Client-side callback exchanges code for session
-7. User redirected to `/jobs`
-
-**Why Google OAuth (not Magic Links):**
-- Simpler UX (single click vs email + click)
-- No PKCE code_verifier issues with server/client mismatch
-- More familiar to users
-- No email deliverability concerns
-
-**Session Management:**
-- JWT tokens stored in HTTP-only cookies
-- Server-side session validation via `@supabase/ssr`
-- Auto-refresh on token expiry
-
-**Profile Auto-Creation:**
-- Database trigger creates profile on `auth.users` insert
-- Name and avatar pulled from Google account
-- Default role: `field` (admin must upgrade)
-
-### Storage Configuration
-
-**Bucket:** `task-attachments`
-- Max file size: 10MB
-- Allowed types: images, PDFs
-- Path structure: `{task_id}/{file_id}.{ext}`
-
-**Policies:**
-- Upload: User can access task (admin or assigned)
-- Download: User can access task
-- Delete: Admin only
-
-### Sync Strategy
-
-**Online Flow:**
-1. UI action triggers repository method
-2. Repository calls Supabase directly
-3. Real-time subscription updates other clients
-4. IndexedDB updated as cache
-
-**Offline Flow:**
-1. UI action triggers repository method
-2. Repository writes to IndexedDB immediately
-3. Operation queued in `syncQueue` store
-4. When online, queue processed FIFO
-5. Conflicts resolved per field type
-
-**Conflict Resolution:**
-- `version` field on tasks for optimistic locking
-- Server rejects stale updates (version mismatch)
-- Client fetches latest, shows conflict UI
-- Comments: append-only, no conflicts
-- Files: last-upload-wins
-
-### Routes (Next.js)
-
-| Route | Type | Purpose |
-|-------|------|---------|
-| `/login` | Page | Google OAuth sign-in button |
-| `/callback` | Page | Client-side OAuth callback handler |
-| `/auth/callback` | Route | Legacy redirect to `/callback` |
-| `/api/push/subscribe` | API | Register push subscription |
-| `/api/push/unsubscribe` | API | Remove push subscription |
-
-### Edge Functions (Supabase)
-
-| Function | Trigger | Purpose |
-|----------|---------|---------|
-| `send-push-notification` | Task update | Notify assigned users |
-| `cleanup-expired-files` | Cron (daily) | Remove orphaned uploads |
-
-### Current Progress
-
-**Completed (Phase 4a):**
-- [x] All 8 database tables created via migrations
-- [x] RLS enabled on all tables with policies
-- [x] Helper functions for access control
-- [x] Storage bucket with upload/download policies
-- [x] TypeScript types generated (`src/types/supabase.ts`)
-- [x] Supabase client utilities (`src/lib/supabase/`)
-- [x] Environment configuration (`.env.example`)
-
-**Completed (Phase 4b - Authentication):**
-- [x] Google OAuth login (`src/app/(auth)/login/page.tsx`)
-- [x] Client-side OAuth callback (`src/app/(auth)/callback/page.tsx`)
-- [x] Middleware for protected routes (`src/middleware.ts`)
-- [x] useAuth hook implementation (`src/lib/hooks/useAuth.ts`)
-- [x] Logout functionality wired to sidebar and header
-- [x] Profile auto-creation trigger in database
-
-**Next (Phase 4c - Data Integration):**
-- [ ] Supabase repository provider
-- [ ] Replace mock provider usage
-- [ ] Real-time subscriptions
-- [ ] Push notification edge function
+**RLS Policies:**
+- Admin: Full CRUD on all tables
+- Field: Read/update only assigned jobs and tasks
 
 ## User Roles
 
-- **Admin**: Create/edit jobs, tasks, columns; upload files; manage users
-- **Field**: View assigned tasks only; update status; add comments; upload photos
+- **Admin**: Create/edit jobs, tasks, columns; manage users
+- **Field**: View assigned tasks; update status; add comments; upload photos
 
-## UI/UX Design Decisions
+## UI Design System
 
-### UI Revamp (January 2026)
+### Design Philosophy
+Linear-inspired aesthetic with shadcn/ui components. Clean, minimal, professional.
 
-**Design System**: shadcn/ui with Linear-inspired aesthetic
-
-**User Preferences Selected**:
-1. Color Palette: **Option A - Linear-inspired** (indigo primary)
-2. Light/Dark Mode: **Toggle** (equal priority)
-3. Navigation: **Hybrid** (header on mobile, sidebar on desktop)
-4. Card Style: **Bordered** (flat/minimal, subtle borders)
-5. Priority Indicators: **Both** (colored left border + corner badge)
-6. Animation Intensity: **Minimal/Moderate** (hover effects, smooth transitions)
-7. Mobile vs Desktop: **Balance both** equally
-8. Offline Indicator: **Subtle badge** in header
-
-### Color Palette (Linear-Inspired)
+### Color Palette
 
 | Role | Light Mode | Dark Mode | CSS Variable |
 |------|------------|-----------|--------------|
 | Background | `#FAFAFA` | `#0A0A0A` | `--background` |
 | Surface/Card | `#FFFFFF` | `#141414` | `--card` |
 | Primary | `#5865F2` | `#5865F2` | `--primary` |
-| Primary Foreground | `#FFFFFF` | `#FFFFFF` | `--primary-foreground` |
 | Muted | `#F4F4F5` | `#27272A` | `--muted` |
-| Muted Foreground | `#71717A` | `#A1A1AA` | `--muted-foreground` |
 | Border | `#E4E4E7` | `#27272A` | `--border` |
-| Accent | `#22C55E` | `#22C55E` | `--accent` (success) |
+| Success | `#22C55E` | `#22C55E` | `--accent` |
 | Destructive | `#EF4444` | `#F87171` | `--destructive` |
 | Warning | `#F59E0B` | `#FBBF24` | `--warning` |
 
-### Priority Colors (Both Border + Badge)
-| Priority | Left Border | Badge Background |
-|----------|-------------|------------------|
+### Priority Indicators (Border + Badge)
+
+| Priority | Left Border | Badge Style |
+|----------|-------------|-------------|
 | Urgent | `border-l-red-500` | `bg-red-100 text-red-700` |
 | High | `border-l-orange-500` | `bg-orange-100 text-orange-700` |
 | Medium | `border-l-primary` | `bg-primary/10 text-primary` |
 | Low | `border-l-muted` | `bg-muted text-muted-foreground` |
 
-### Typography (Geist Font - Already Installed)
-| Element | Weight | Size | Line Height |
-|---------|--------|------|-------------|
-| H1 | 700 (Bold) | 28-32px | 1.2 |
-| H2 | 600 (Semibold) | 20-24px | 1.3 |
-| H3 | 600 (Semibold) | 16-18px | 1.4 |
-| Body | 400 (Regular) | 14-16px | 1.5 |
-| Caption | 500 (Medium) | 12px | 1.4 |
+### Typography (Geist Font)
 
-### Animation Specifications (Minimal/Moderate)
-```css
-/* Transitions */
---transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
---transition-normal: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+| Element | Weight | Size |
+|---------|--------|------|
+| H1 | 700 | 28-32px |
+| H2 | 600 | 20-24px |
+| H3 | 600 | 16-18px |
+| Body | 400 | 14-16px |
+| Caption | 500 | 12px |
 
-/* Applied to */
-- Button hover: scale(1.02) + color shift (150ms)
-- Card hover: subtle border color change (200ms)
-- Drag start: scale(1.02) + shadow (150ms)
-- Modal open: fade + scale-in (200ms)
-- Tab switch: fade crossfade (150ms)
-```
+### Navigation
 
-### shadcn/ui Components to Install
-**Core (Phase 1)**:
-- `button` - Primary actions
-- `card` - Task cards, job cards, panels
-- `badge` - Priority indicators, status tags
-- `dialog` - Confirmation dialogs
-- `sheet` - Mobile-friendly slide-out panels
-- `dropdown-menu` - User menu, task actions
-- `tabs` - Task detail tabs
-- `avatar` - User avatars
-
-**Layout (Phase 2)**:
-- `sidebar` - Desktop navigation
-- `separator` - Visual dividers
-
-**Forms (Phase 3 - for admin features)**:
-- `input`, `textarea`, `select`, `checkbox`, `label`, `form`
-
-**Feedback**:
-- `toast` - Notifications
-- `skeleton` - Loading states
-- `tooltip` - Icon explanations
-
-### Navigation Architecture
 ```
 Mobile (< 1024px):
 ┌─────────────────────────────────────┐
 │ [≡] Logo      [offline] [avatar ▼] │  ← Header bar
 ├─────────────────────────────────────┤
-│                                     │
 │           Page Content              │
-│                                     │
 └─────────────────────────────────────┘
 
 Desktop (≥ 1024px):
@@ -464,587 +155,130 @@ Desktop (≥ 1024px):
 │ Jobs     ├──────────────────────────┤
 │ Team*    │                          │
 │ Settings*│      Page Content        │
-│          │                          │
-│          │                          │
 │ ──────── │                          │
 │ [theme]  │                          │
 └──────────┴──────────────────────────┘
 * Admin only
 ```
 
-### Card Style (Bordered)
+### Card Style
+
 ```tsx
-// TaskCard styling
+// Bordered cards with priority indicator
 <Card className="border border-border hover:border-primary/50 transition-colors">
-  {/* Left border for priority */}
   <div className="border-l-4 border-l-{priority-color}">
     {/* Content */}
   </div>
 </Card>
 ```
 
-### Offline Indicator (Subtle Badge)
-- Location: Header, right side near user avatar
-- Style: Small badge with icon
+### Animations (Minimal)
+
+```css
+--transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+--transition-normal: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+
+/* Applied to: button hover, card hover, drag start, modal open */
+```
+
+### Offline Indicator
+
+- Location: Header, right side
 - Online: Hidden or subtle green dot
 - Offline: `<Badge variant="outline"><WifiOff /> Offline</Badge>`
 - Syncing: `<Badge variant="outline"><RefreshCw className="animate-spin" /> 3 pending</Badge>`
 
-### Accessibility (Unchanged)
-- Minimum 48x48px touch targets (exceeds 44px guideline)
-- WCAG AAA contrast (7:1) for critical elements
-- Focus rings: 3px, high-visibility color
-- Never rely on color alone - always icons + text
-- ARIA labels on all icon-only buttons
+### Accessibility & Touch
 
-### Card Density: Adaptive
-- **Desktop**: Compact cards, more tasks visible at once
-- **Mobile/Tablet**: Spacious cards with larger touch targets (min 44px)
-- Responsive padding: `p-3` on desktop, `p-4` on mobile
+- **Touch targets**: Minimum 48x48px (glove-friendly)
+- **Contrast**: WCAG AAA (7:1) for critical elements
+- **Focus rings**: 3px, high-visibility
+- **Color**: Never rely on color alone - always icons + text
+- **Card density**: Compact on desktop, spacious on mobile
 
-### Task Card Information
-- Location/floor indicator (where on job site)
-- Duration estimate (time to complete)
-- Job specs reference (drawing/spec numbers)
-- Priority badge in top-right corner
-- Colored left border for priority
-- Assignee avatars
+### shadcn/ui Components Used
 
-### Touch Targets
-- Minimum 48x48px for all interactive elements
-- Drag handles sized for gloved hands
-- Swipe gestures for mobile column navigation
+**Core**: button, card, badge, dialog, sheet, dropdown-menu, tabs, avatar
+**Layout**: sidebar, separator
+**Forms**: input, textarea, select, checkbox, label
+**Feedback**: toast (sonner), skeleton, tooltip
 
-## Implementation Order
+## Current Status
 
-### Phase 1: MVP (Complete)
-- [x] Project setup with Next.js + TypeScript + Tailwind
-- [x] Core types and data layer abstraction
-- [x] Mock data provider for development
-- [x] IndexedDB storage setup
-- [x] Kanban board UI with drag-drop
-- [x] Job list and navigation
+### What's Working
+- [x] Google OAuth authentication
+- [x] Jobs list (loads from Supabase)
+- [x] Kanban board with drag-drop
+- [x] Create/edit jobs, columns, tasks
 - [x] Task detail view with comments
-- [x] Basic PWA manifest
+- [x] Data persists to Supabase
+- [x] Admin vs Field role UI differences
 
-### Phase 2: Full Offline
-- [ ] Sync queue implementation
-- [ ] Conflict resolution
-- [ ] Offline indicator UI
-- [ ] Background sync
+### What's Next (Priority Order)
+1. **Photo capture/upload** - Document completed work
+2. **Offline support** - Sync queue, conflict resolution
+3. **Real-time updates** - Supabase subscriptions
+4. **Admin features** - User management, reporting
 
-### Phase 3: File Handling
-- [ ] Photo capture from camera
-- [ ] File upload with offline queue
-- [ ] PDF/image viewer
-- [ ] Offline file caching
+## Environment Variables
 
-### Phase 4: Backend Integration (Supabase)
-
-#### Phase 4a: Supabase Setup (Complete)
-- [x] Database schema with migrations (8 tables: profiles, jobs, columns, tasks, task_assignments, comments, file_attachments, push_subscriptions)
-- [x] RLS policies for role-based access (admin vs field users)
-- [x] Helper functions (is_admin, is_assigned_to_job, is_assigned_to_task, can_access_task)
-- [x] Storage bucket (task-attachments) with policies
-- [x] TypeScript types generated from schema
-- [x] Supabase client utilities (browser + server)
-
-#### Phase 4b: Authentication (Complete)
-- [x] Google OAuth authentication flow
-- [x] Auth middleware for protected routes
-- [x] Profile auto-creation on signup
-- [x] Session management
-
-#### Phase 4c: Data Layer Integration (Complete)
-
-**Problem Solved:** App had a hybrid data problem - writes went to Supabase, reads came from mock IndexedDB. Data disappeared on refresh.
-
-**Solution:** Created Supabase Repository Provider implementing the `DataRepository` interface.
-
-**Step 1: Create Supabase Repository Provider**
-- [x] New file: `src/lib/data/providers/supabase.ts` (~450 lines)
-- [x] Implement all DataRepository methods (Jobs, Columns, Tasks, Comments, Files, Users)
-- [x] Add snake_case ↔ camelCase transformation helpers
-
-**Step 2: Create Repository Context**
-- [x] New file: `src/lib/data/repository-context.tsx` (~55 lines)
-- [x] Create `RepositoryProvider` component
-- [x] Create `useRepository()` hook
-
-**Step 3: Add Provider to Dashboard Layout**
-- [x] Modify: `src/app/(dashboard)/layout.tsx`
-- [x] Wrap children with `<RepositoryProvider>`
-
-**Step 4: Update Consumer Components**
-- [x] `src/app/(dashboard)/jobs/page.tsx` - Replace mockRepository with useRepository()
-- [x] `src/app/(dashboard)/jobs/[jobId]/page.tsx` - Replace mockRepository + direct Supabase
-- [x] `src/components/kanban/TaskDetail.tsx` - Replace mockRepository with useRepository()
-- [x] `src/components/kanban/AddTaskDialog.tsx` - Replace direct createClient()
-- [x] `src/components/kanban/AddColumnDialog.tsx` - Replace direct createClient()
-- [x] `src/app/(dashboard)/admin/jobs/new/page.tsx` - Replace direct createClient()
-
-**Testing Checklist:**
-- [ ] Jobs page loads jobs from Supabase
-- [ ] Clicking a job shows its Kanban board with columns/tasks
-- [ ] Add Task creates task that persists on refresh
-- [ ] Add Column creates column that persists on refresh
-- [ ] New Job creates job with default columns
-- [ ] Task detail shows comments
-- [ ] Drag-and-drop updates task position
-
-**Future (after core data working):**
-- [ ] Real-time subscriptions for task updates
-- [ ] Push notifications via Edge Functions
-
-### Phase 5: Admin Features
-- [ ] Custom column management
-- [ ] User management
-- [ ] Job creation/editing
-- [ ] Reporting/analytics
-
-## Known Issues / Technical Debt
-
-Issues identified during architecture review that should be addressed before Phase 2:
-
-### High Priority (Phase 2 Blockers)
-
-1. **Direct mockRepository imports bypass abstraction**
-   - Files: `TaskDetail.tsx`, `layout.tsx`, `jobs/[jobId]/page.tsx`
-   - Fix: Create `useRepository` hook or context provider, use `getRepository()` from `repository.ts`
-
-2. **Component-local state for shared data**
-   - `TaskDetail.tsx` maintains local `comments`, `files`, `users` state
-   - Fix: Move to Zustand store for proper sync queue integration
-
-3. **Zustand store underutilization**
-   - Store missing: `comments`, `files`, `syncStatus`
-   - Actions needed: `addComment`, `updateFile`, sync state management
-
-### Medium Priority
-
-4. **Missing error handling patterns**
-   - Components only handle success cases, no error display
-   - Fix: Add error states and user feedback for failed operations
-
-5. **No optimistic updates for comments**
-   - `handleAddComment` waits for repository before updating UI
-   - Fix: Update UI immediately, queue for sync
-
-6. **Missing useSync hook**
-   - Referenced in CLAUDE.md but not implemented
-   - Needed for: Processing pending operations, manual sync trigger
-
-### Low Priority
-
-7. **Task card indicators hardcoded**
-   - `TaskCard.tsx` shows "0" for comments/attachments
-   - Fix: Connect to actual comment/file counts
-
-8. **No error boundaries**
-   - Add React error boundaries for graceful failure handling
-
-### Phase 2 Prep Checklist
-- [ ] Centralize repository access via hook/context
-- [ ] Expand Zustand store with comments, files, syncStatus
-- [ ] Implement useSync hook
-- [ ] Add optimistic update pattern
-- [ ] Connect sync queue to all create/update/delete operations
-
-## Future Opportunities (Ideas for Later)
-
-Research-identified opportunities to consider for future development. Not in active roadmap.
-
-### Feature Ideas
-
-#### Time Tracking & GPS
-- [ ] GPS geofencing for auto clock-in/out at job sites
-- [ ] Time tracking per task (not just per job)
-- [ ] Timesheet export for payroll integration
-- [ ] Mileage tracking between job sites
-- [ ] Real-time crew location tracking
-
-#### Voice & Hands-Free
-- [ ] Voice-to-text for comments and notes (Web Speech API)
-- [ ] Voice commands for task status updates
-- [ ] Offline speech recognition (on-device)
-- [ ] Critical for gloved workers who can't type
-
-#### Daily Reports & Documentation
-- [ ] Daily log templates (weather, crew, equipment, work completed)
-- [ ] Before/after photo requirements per task
-- [ ] PDF report generation for clients
-- [ ] Automatic weather capture via API
-- [ ] Digital signature capture
-
-#### Checklists
-- [ ] Pre-job safety checklists
-- [ ] Quality control checklists
-- [ ] Completion verification checklists
-- [ ] ADA compliance checklists (parking lot requirements)
-- [ ] Traffic control setup checklists
-- [ ] Equipment inspection checklists
-- [ ] Custom checklist builder for admins
-
-#### Communication
-- [ ] Job-specific chat channels
-- [ ] @mentions for crew members
-- [ ] Auto-translation for multilingual crews
-- [ ] Attach photos/files to messages
-- [ ] Urgent message push notifications
-
-#### Equipment & Materials
-- [ ] Track material usage per job (paint, reflectors, etc.)
-- [ ] Equipment assignment to jobs/crews
-- [ ] Low inventory alerts
-- [ ] Material cost tracking for job profitability
-- [ ] Calculate paint needed based on linear feet
-
-### Industry-Specific (Pavement Marking)
-
-#### Measurements & Estimating
-- [ ] Store property measurements (stalls, linear feet, square footage)
-- [ ] Task types: line striping, stenciling, arrows, handicap symbols
-- [ ] Auto-calculate paint quantities from measurements
-- [ ] Unit-based pricing (per stall, per linear foot)
-
-#### Weather Awareness
-- [ ] Weather API integration
-- [ ] Surface temperature thresholds for paint application
-- [ ] Automatic weather conditions in reports
-- [ ] Reschedule suggestions for bad weather
-- [ ] Night work scheduling support
-
-#### Compliance
-- [ ] ADA parking compliance verification
-- [ ] Sign height verification (60" minimum)
-- [ ] Proper symbol dimension checks
-- [ ] Access aisle width verification
-- [ ] Compliance photo documentation
-- [ ] Generate compliance reports
-
-#### Safety
-- [ ] Traffic control documentation
-- [ ] Required signage tracking
-- [ ] Night work lighting requirements
-- [ ] Lane closure documentation
-- [ ] Safety briefing sign-offs
-- [ ] OSHA toolbox talk integration
-
-### Technical Opportunities (Modern Web APIs)
-
-- [ ] Background Sync API - auto-sync when connectivity returns
-- [ ] Periodic Background Sync - fetch job updates overnight
-- [ ] Geolocation watchPosition - real-time location
-- [ ] Wake Lock API - prevent screen sleep during work
-- [ ] Notification Triggers API - location-based reminders
-- [ ] File System Access API - batch photo upload
-- [ ] Web Share Target API - receive photos from camera app
-
-### Integration Ideas
-
-#### High Priority
-- [ ] QuickBooks - payroll, invoicing, job costing
-- [ ] Weather API - auto-log conditions
-- [ ] Google Maps - route optimization, travel time
-- [ ] Google Calendar - crew scheduling sync
-
-#### Medium Priority
-- [ ] Stripe/Square - payment collection in field
-- [ ] Gusto/ADP - direct payroll export
-- [ ] Zapier - connect to 5000+ apps
-
-#### Industry-Specific
-- [ ] Home Depot Pro Xtra - material ordering
-- [ ] Equipment GPS tracking
-- [ ] Safety/OSHA compliance apps
-
-### Business Model Ideas
-
-If commercialized, consider tiered pricing:
-- **Free**: 1 user, 3 active jobs (viral adoption)
-- **Team** ($29/mo): 5 users, unlimited jobs, offline, photos
-- **Pro** ($79/mo): 15 users, time tracking, reports, integrations
-- **Business** ($149/mo): Unlimited users, API access, priority support
-
-### Competitive Positioning
-
-Target sweet spot:
-- 2-20 person crews
-- Specialty trades (pavement marking, concrete, landscaping)
-- Price-conscious but need professional tools
-- Poor connectivity environments
-- Mobile-primary workflows
-
-Differentiators:
-- True offline-first (not afterthought)
-- Mobile-first, glove-friendly
-- Simple (15-minute onboarding)
-- Vertical focus on specialty contractors
-
-## Available MCP Servers
-
-- **supabase**: Database operations and management
-- **context7**: Access up-to-date library documentation
-- **playwright**: Browser automation and testing
-
-## Available Slash Commands
-
-### Development
-- `/new-task` - Analyze task complexity and create implementation plan
-- `/code-optimize` - Performance optimization
-- `/code-cleanup` - Refactoring and cleanup
-- `/feature-plan` - Feature implementation planning
-- `/lint` - Run linting and fix issues
-
-### API Development
-- `/api-new` - Create new API routes with validation and error handling
-- `/api-test` - Test API endpoints
-- `/api-protect` - Add authentication and security
-
-### UI Development
-- `/component-new` - Create React components
-- `/page-new` - Create Next.js pages
-
-### Supabase
-- `/types-gen` - Generate TypeScript types from database schema
-- `/edge-function-new` - Create Supabase Edge Functions
+Required in `.env.local` and Vercel:
+```
+NEXT_PUBLIC_SUPABASE_URL=your-project-url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+```
 
 ## Development Guidelines
 
-### Session Continuity (IMPORTANT)
-- **Always read CLAUDE.md at the start of any session**
-- **Always update CLAUDE.md after completing significant work**
-- Document crucial decisions, configurations, and progress so context is never lost
-- If something would be painful to rediscover, write it down here
+### Before Starting Any Work
+1. **Read this entire file** - Especially UI Design System and architecture sections
+2. **Check Current Status** - Know what's working and what's next
+3. **Follow established patterns** - Use existing components and utilities
+4. **Update this file** - After completing significant work, update Current Status and Session Log
 
 ### Code Standards
-- Use TypeScript strict mode; never use `any` types
-- Follow Next.js App Router conventions
-- Prefer server components; use client components only when interactivity needed
-- All data operations go through the repository abstraction
-- Queue offline changes for sync; use optimistic updates in UI
+- TypeScript strict mode; never use `any`
+- All data operations through repository abstraction
+- Prefer server components; client only when needed
 
-### Git Workflow & Branching Strategy
-
-**Branch Structure:**
+### Git Workflow
 ```
-main (production) ← Vercel deploys to production URL
-  └── develop (staging) ← Integration branch, Vercel preview
-        ├── feature/auth-flow
-        ├── feature/offline-sync
-        └── fix/task-drag-bug
+main (production)
+  └── develop (staging)
+        └── feature/* or fix/*
 ```
 
-**Rules:**
-1. **Never commit directly to `main`** - all changes go through PRs
-2. **Feature branches** branch off `develop`, merge back to `develop`
-3. **Hotfixes** can branch from `main` if critical, but prefer `develop`
-4. **`develop` → `main`** merges happen for releases
+- Never commit directly to `main`
+- Feature branches → develop → main
+- Commit format: `Add/Update/Fix: short description`
 
-**Workflow:**
-```bash
-# Start new feature
-git checkout develop
-git pull origin develop
-git checkout -b feature/my-feature
+## Supabase Configuration
 
-# Work on feature
-# ... make changes, commit ...
-git push -u origin feature/my-feature
+**Authentication → URL Configuration:**
+- Site URL: `https://your-domain.vercel.app`
+- Redirect URLs:
+  - `http://localhost:3000/callback`
+  - `https://your-domain.vercel.app/callback`
+  - `https://*.vercel.app/callback`
 
-# Create PR to develop (Vercel auto-deploys preview)
-gh pr create --base develop --title "Add my feature"
-
-# After PR review & merge to develop, delete feature branch
-git checkout develop
-git pull origin develop
-git branch -d feature/my-feature
-```
-
-**Vercel Preview Deployments:**
-- Every push to a non-main branch triggers a preview deployment
-- Preview URLs auto-posted as PR comments
-- Format: `https://fieldkanban-git-{branch}-{username}.vercel.app`
-
-**Branch Naming Conventions:**
-- `feature/` - New features (e.g., `feature/offline-sync`)
-- `fix/` - Bug fixes (e.g., `fix/task-drag-not-working`)
-- `refactor/` - Code refactoring (e.g., `refactor/store-cleanup`)
-- `docs/` - Documentation only (e.g., `docs/api-readme`)
-
-**Commit Message Format:**
-```
-<type>: <short description>
-
-<optional body explaining why>
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-
-Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
-```
-
-Types: `Add`, `Update`, `Fix`, `Refactor`, `Remove`, `Test`, `Docs`
+**Google OAuth:**
+- Configure in Supabase Dashboard → Authentication → Providers → Google
+- Get credentials from Google Cloud Console
 
 ## Session Log
 
-### January 6, 2026 - UI Revamp + Authentication
+### January 8, 2026 - Data Layer Integration
+- Created `SupabaseRepository` implementing full `DataRepository` interface
+- Added `RepositoryProvider` context and `useRepository()` hook
+- All pages now load/save data from Supabase
+- Fixed hybrid data problem (reads from mock, writes to Supabase)
 
-**Completed:**
+### January 7, 2026 - Auth Fixes
+- Fixed Vercel build errors (Suspense boundaries)
+- Fixed database trigger for user profile creation
+- Added RLS INSERT policies for profiles
 
-1. **UI Revamp with shadcn/ui**
-   - Initialized shadcn/ui with Linear-inspired theme (indigo primary #5865F2)
-   - Added dark/light mode toggle with next-themes
-   - Created hybrid navigation (sidebar on desktop, header on mobile)
-   - Refactored JobCard, TaskCard, Column with shadcn components
-   - Installed: button, card, badge, dialog, sheet, dropdown-menu, tabs, avatar, separator, tooltip, skeleton, sidebar, sonner
-
-2. **Git Workflow Setup**
-   - Created `develop` branch for staging
-   - Documented branching strategy (feature/* → develop → main)
-   - Configured for Vercel preview deployments
-
-3. **Phase 4b: Magic Link Authentication**
-   - `src/middleware.ts` - Route protection, redirects unauthenticated users
-   - `src/app/auth/callback/route.ts` - PKCE code exchange for magic links
-   - `src/app/(auth)/layout.tsx` - Centered auth layout
-   - `src/app/(auth)/login/page.tsx` - Email form with magic link
-   - `src/app/(auth)/verify/page.tsx` - "Check your email" confirmation
-   - `src/lib/hooks/useAuth.ts` - Auth state hook with signOut
-   - Updated dashboard layout to use useAuth instead of mockRepository
-   - Wired logout buttons in AppSidebar and AppHeader
-
-**Important Notes:**
-- Supabase redirect URLs must be configured in dashboard for auth to work
-- Add `http://localhost:3000/auth/callback` for local dev
-- Add Vercel preview URL pattern for preview deployments
-- User is testing auth on Vercel preview build
-
-**Next Steps (Phase 4c):**
-- Supabase repository provider implementation
-- Replace mock provider with real Supabase data
-- Real-time subscriptions for task updates
-
-### January 7, 2026 - Vercel Deployment & Auth Fixes
-
-**Issues Fixed:**
-
-1. **Vercel Build Failure - useSearchParams Suspense**
-   - Error: `useSearchParams() should be wrapped in a suspense boundary`
-   - Next.js 15 requires `useSearchParams()` to be wrapped in `<Suspense>`
-   - Fixed in: `src/app/(auth)/login/page.tsx`, `src/app/(auth)/verify/page.tsx`
-   - Solution: Extracted form components and wrapped with `<Suspense fallback={...}>`
-
-2. **Middleware Crash - Missing Environment Variables**
-   - Error: `500: MIDDLEWARE_INVOCATION_FAILED`
-   - Middleware crashed when Supabase env vars weren't set in Vercel
-   - Fixed in: `src/middleware.ts`
-   - Solution: Added check for env vars, allow requests through if missing (auth disabled)
-
-3. **Infinite Loading on Login**
-   - Login form would load forever if Supabase request failed
-   - Fixed in: `src/app/(auth)/login/page.tsx`, `src/lib/supabase/client.ts`
-   - Solution: Added try-catch with 15-second timeout, clear error messages
-
-4. **Database Error Saving New User**
-   - Error: `type "user_role" does not exist (SQLSTATE 42704)`
-   - Trigger function couldn't find the `user_role` enum type
-   - Fixed via Supabase migration: `fix_handle_new_user_trigger`
-   - Solution: Use fully qualified type `public.user_role` and set `search_path = public`
-
-5. **Missing RLS INSERT Policy**
-   - Profiles table had no INSERT policy for the trigger
-   - Fixed via Supabase migration: `fix_profiles_insert_policy`
-   - Solution: Added INSERT policies for `service_role` and `authenticated` users
-
-**Database Migrations Applied:**
-```sql
--- fix_profiles_insert_policy
-CREATE POLICY "Service role can insert profiles" ON profiles
-  FOR INSERT TO service_role WITH CHECK (true);
-CREATE POLICY "Users can insert own profile" ON profiles
-  FOR INSERT TO authenticated WITH CHECK (id = auth.uid());
-
--- fix_handle_new_user_trigger
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER
-SET search_path = public
-AS $$
-BEGIN
-    INSERT INTO public.profiles (id, email, name, role)
-    VALUES (
-        NEW.id, NEW.email,
-        COALESCE(NEW.raw_user_meta_data->>'name', split_part(NEW.email, '@', 1)),
-        'field'::public.user_role
-    );
-    RETURN NEW;
-END;
-$$;
-```
-
-**Supabase Configuration Required:**
-- **Site URL**: Set to your primary domain (e.g., `https://fieldkanban.vercel.app` or `http://localhost:3000`)
-- **Redirect URLs** (Authentication → URL Configuration):
-  - `http://localhost:3000/auth/callback`
-  - `https://fieldkanban.vercel.app/auth/callback`
-  - `https://*.vercel.app/auth/callback` (for preview deployments)
-
-**Vercel Environment Variables Required:**
-- `NEXT_PUBLIC_SUPABASE_URL` - Your Supabase project URL
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Your Supabase anon/public key
-
-**Files Changed:**
-- `src/app/(auth)/login/page.tsx` - Suspense boundary, try-catch, timeout
-- `src/app/(auth)/verify/page.tsx` - Suspense boundary
-- `src/middleware.ts` - Env var validation, graceful fallback
-- `src/lib/supabase/client.ts` - Env var validation with clear error
-
-**Status:** Magic link authentication working end-to-end
-
-### January 8, 2026 - Phase 4c Data Layer Integration
-
-**Completed:**
-
-1. **Created Supabase Repository Provider** (`src/lib/data/providers/supabase.ts`)
-   - Implemented all `DataRepository` interface methods
-   - Jobs: getJobs, getJob, createJob, updateJob, deleteJob
-   - Columns: getColumns, createColumn, updateColumn, deleteColumn, reorderColumns
-   - Tasks: getTasks, getTasksForUser, getTask, createTask, updateTask, deleteTask, moveTask
-   - Comments: getComments, createComment, deleteComment
-   - Files: getFiles, uploadFile, deleteFile, getFileUrl
-   - Users: getCurrentUser, getUsers
-   - Added snake_case ↔ camelCase transformation helpers
-   - ~450 lines
-
-2. **Created Repository Context** (`src/lib/data/repository-context.tsx`)
-   - `RepositoryProvider` component wraps app with repository instance
-   - `useRepository()` hook for accessing repository in components
-   - ~55 lines
-
-3. **Updated Dashboard Layout**
-   - Wrapped children with `<RepositoryProvider>` in `src/app/(dashboard)/layout.tsx`
-
-4. **Updated All Consumer Components**
-   - `src/app/(dashboard)/jobs/page.tsx` - Jobs list now loads from Supabase
-   - `src/app/(dashboard)/jobs/[jobId]/page.tsx` - Kanban board uses repository
-   - `src/components/kanban/TaskDetail.tsx` - Comments/files from Supabase
-   - `src/components/kanban/AddTaskDialog.tsx` - Creates tasks via repository
-   - `src/components/kanban/AddColumnDialog.tsx` - Creates columns via repository
-   - `src/app/(dashboard)/admin/jobs/new/page.tsx` - Creates jobs via repository
-
-**Architecture Pattern:**
-```
-UI Component
-    ↓ useRepository()
-Repository Context (React Context)
-    ↓
-SupabaseRepository (implements DataRepository)
-    ↓ snake_case ↔ camelCase
-Supabase Client → PostgreSQL
-```
-
-**Build Status:** Compiles successfully with no errors
-
-**Next Steps:**
-- Test all features end-to-end on Vercel preview
-- Verify data persists on refresh
-- Add real-time subscriptions (future)
+### January 6, 2026 - UI + Auth
+- Implemented shadcn/ui with Linear-inspired theme
+- Added Google OAuth authentication
+- Created hybrid navigation (sidebar desktop, header mobile)

@@ -1,5 +1,6 @@
 "use client";
 
+import { memo } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
@@ -75,7 +76,8 @@ function formatDuration(minutes: number): string {
   return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
 }
 
-export function TaskCard({ task, onClick, overlay = false }: TaskCardProps) {
+// Memoized to prevent re-renders when parent re-renders
+export const TaskCard = memo(function TaskCard({ task, onClick, overlay = false }: TaskCardProps) {
   const {
     attributes,
     listeners,
@@ -248,7 +250,7 @@ export function TaskCard({ task, onClick, overlay = false }: TaskCardProps) {
       </div>
     </Card>
   );
-}
+});
 
 // Overlay version for drag preview
 export function TaskCardOverlay({ task }: { task: Task }) {

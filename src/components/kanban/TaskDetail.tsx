@@ -20,6 +20,7 @@ import {
 import { cn, formatRelativeTime, formatDate } from "@/lib/utils";
 import { CommentList, CommentForm } from "@/components/comments";
 import { useRepository } from "@/lib/data/repository-context";
+import { useCache } from "@/lib/hooks/useCache";
 import type { Task, TaskPriority, Comment, User as UserType, FileAttachment } from "@/types";
 
 interface TaskDetailProps {
@@ -53,20 +54,28 @@ export function TaskDetail({ task, isOpen, onClose, onUpdate: _onUpdate }: TaskD
   const [activeTab, setActiveTab] = useState<"details" | "comments" | "files">("details");
   const repository = useRepository();
 
+  // Cache for users (TTL: 5 minutes - users don't change often)
+  const usersCache = useCache<Record<string, UserType>>({ ttl: 5 * 60 * 1000 });
+
   const priority = task.priority || "medium";
   const PriorityIcon = priorityConfig[priority].icon;
   const isOverdue = task.dueDate && new Date(task.dueDate) < new Date();
 
-  // Load comments, files, and users
+  // Load comments, files, and users with caching
   useEffect(() => {
     if (!isOpen) return;
 
     async function loadData() {
       setIsLoading(true);
+
+      // Check cache for users first
+      const cachedUsers = usersCache.get("all-users");
+
+      // Load task-specific data always, users only if not cached
       const [commentsResult, filesResult, usersResult] = await Promise.all([
         repository.getComments(task.id),
         repository.getFiles(task.id),
-        repository.getUsers(),
+        cachedUsers ? Promise.resolve(null) : repository.getUsers(),
       ]);
 
       if (commentsResult.success && commentsResult.data) {
@@ -75,16 +84,22 @@ export function TaskDetail({ task, isOpen, onClose, onUpdate: _onUpdate }: TaskD
       if (filesResult.success && filesResult.data) {
         setFiles(filesResult.data);
       }
-      if (usersResult.success && usersResult.data) {
+
+      // Use cached users or freshly fetched
+      if (cachedUsers) {
+        setUsers(cachedUsers);
+      } else if (usersResult?.success && usersResult.data) {
         const usersMap: Record<string, UserType> = {};
         usersResult.data.forEach((u) => (usersMap[u.id] = u));
         setUsers(usersMap);
+        usersCache.set("all-users", usersMap);
       }
+
       setIsLoading(false);
     }
 
     loadData();
-  }, [task.id, isOpen, repository]);
+  }, [task.id, isOpen, repository, usersCache]);
 
   // Handle adding a comment
   const handleAddComment = useCallback(
