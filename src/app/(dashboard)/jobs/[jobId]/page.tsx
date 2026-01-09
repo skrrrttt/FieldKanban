@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useParams } from "next/navigation";
 import { ArrowLeft, Settings, Users } from "lucide-react";
 import Link from "next/link";
@@ -33,10 +33,25 @@ export default function JobBoardPage() {
   const isAdmin = currentUser?.role === "admin";
   const repository = useRepository();
 
-  // Load job data
+  // Use refs to avoid re-running effect when these change
+  const currentUserRef = useRef(currentUser);
+  const isAdminRef = useRef(isAdmin);
+  currentUserRef.current = currentUser;
+  isAdminRef.current = isAdmin;
+
+  // Track if we've loaded data for this job
+  const hasLoadedRef = useRef<string | null>(null);
+
+  // Load job data - only when jobId changes, not on every render
   useEffect(() => {
+    // Skip if we've already loaded this job
+    if (hasLoadedRef.current === jobId) {
+      return;
+    }
+
     async function loadJob() {
       setIsLoading(true);
+      hasLoadedRef.current = jobId;
 
       const [jobResult, columnsResult, tasksResult] = await Promise.all([
         repository.getJob(jobId),
@@ -53,9 +68,9 @@ export default function JobBoardPage() {
       if (tasksResult.success && tasksResult.data) {
         // For field users, filter to only their assigned tasks
         let visibleTasks = tasksResult.data;
-        if (!isAdmin && currentUser) {
+        if (!isAdminRef.current && currentUserRef.current) {
           visibleTasks = tasksResult.data.filter((t) =>
-            t.assignedTo.includes(currentUser.id)
+            t.assignedTo.includes(currentUserRef.current!.id)
           );
         }
         setTasks(visibleTasks);
@@ -65,7 +80,7 @@ export default function JobBoardPage() {
     }
 
     loadJob();
-  }, [jobId, isAdmin, currentUser, repository]);
+  }, [jobId, repository]);
 
   // Handle task move (drag and drop)
   const handleTaskMove = useCallback(

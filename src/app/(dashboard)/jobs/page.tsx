@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import { Plus, Search, Filter } from "lucide-react";
 import { JobList } from "@/components/jobs";
@@ -22,9 +22,18 @@ export default function JobsPage() {
   // Debounce search query to avoid filtering on every keystroke
   const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
+  // Track if we've loaded data
+  const hasLoadedRef = useRef(false);
+
   useEffect(() => {
+    // Skip if already loaded
+    if (hasLoadedRef.current) {
+      return;
+    }
+
     async function loadJobs() {
       setIsLoading(true);
+      hasLoadedRef.current = true;
       const result = await repository.getJobs();
       if (result.success && result.data) {
         setJobs(result.data);
