@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 function CallbackHandler() {
   const router = useRouter();
@@ -41,13 +42,50 @@ function CallbackHandler() {
           return;
         }
 
-        console.log("[Auth Callback] Session exchange successful, redirecting to /jobs");
+        console.log("[Auth Callback] Session exchange successful");
 
         // Small delay to ensure cookies are set
         await new Promise(resolve => setTimeout(resolve, 100));
 
-        // Redirect to jobs page
-        router.push("/jobs");
+        // Get the login intent (user or admin)
+        const intent = searchParams.get("intent") || "user";
+
+        // Fetch user profile to check role
+        const { data: { user } } = await supabase.auth.getUser();
+
+        if (!user) {
+          console.error("[Auth Callback] No user after session exchange");
+          router.push("/login?error=no_user&error_description=" + encodeURIComponent("Failed to get user session"));
+          return;
+        }
+
+        // Fetch profile to get role
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .single();
+
+        const userRole = profile?.role || "field";
+        console.log("[Auth Callback] User role:", userRole, "Intent:", intent);
+
+        // Role-based redirect logic
+        if (intent === "admin") {
+          if (userRole === "admin") {
+            console.log("[Auth Callback] Admin access granted, redirecting to /admin");
+            router.push("/admin");
+          } else {
+            console.log("[Auth Callback] Admin access denied for field user");
+            toast.error("Access denied", {
+              description: "You don't have admin privileges. Contact your administrator.",
+            });
+            router.push("/jobs");
+          }
+        } else {
+          // User intent - always go to jobs
+          console.log("[Auth Callback] Redirecting to /jobs");
+          router.push("/jobs");
+        }
       } catch (err) {
         console.error("[Auth Callback] Unexpected error:", err);
         const message = err instanceof Error ? err.message : "An unexpected error occurred";

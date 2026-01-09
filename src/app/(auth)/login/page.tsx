@@ -8,6 +8,9 @@ import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+type LoginIntent = "user" | "admin";
 
 function GoogleIcon({ className }: { className?: string }) {
   return (
@@ -32,7 +35,11 @@ function GoogleIcon({ className }: { className?: string }) {
   );
 }
 
-function LoginForm() {
+interface LoginFormProps {
+  intent: LoginIntent;
+}
+
+function LoginForm({ intent }: LoginFormProps) {
   const [loading, setLoading] = useState(false);
   const searchParams = useSearchParams();
 
@@ -57,7 +64,7 @@ function LoginForm() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/callback`,
+          redirectTo: `${window.location.origin}/callback?intent=${intent}`,
         },
       });
 
@@ -112,18 +119,40 @@ function LoginFormFallback() {
   );
 }
 
+const LOGIN_CONTENT = {
+  user: {
+    title: "Sign in to FieldKanban",
+    description: "View your assigned jobs and update task status",
+  },
+  admin: {
+    title: "Admin Sign In",
+    description: "Manage jobs, users, and settings for your organization",
+  },
+};
+
 export default function LoginPage() {
+  const [intent, setIntent] = useState<LoginIntent>("user");
+  const content = LOGIN_CONTENT[intent];
+
   return (
-    <Card>
-      <CardHeader className="text-center">
-        <CardTitle className="text-2xl">Welcome to FieldKanban</CardTitle>
-        <CardDescription>
-          Sign in to manage your field operations
-        </CardDescription>
+    <Card className="w-full max-w-md">
+      <CardHeader className="text-center pb-2">
+        <Tabs
+          value={intent}
+          onValueChange={(value) => setIntent(value as LoginIntent)}
+          className="w-full mb-4"
+        >
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="user">User</TabsTrigger>
+            <TabsTrigger value="admin">Admin</TabsTrigger>
+          </TabsList>
+        </Tabs>
+        <CardTitle className="text-2xl">{content.title}</CardTitle>
+        <CardDescription>{content.description}</CardDescription>
       </CardHeader>
       <CardContent>
         <Suspense fallback={<LoginFormFallback />}>
-          <LoginForm />
+          <LoginForm intent={intent} />
         </Suspense>
 
         <p className="mt-6 text-center text-xs text-muted-foreground">
