@@ -22,6 +22,8 @@ interface ColumnProps {
   tasks: Task[];
   onTaskClick?: (task: Task) => void;
   onAddTask?: () => void;
+  onDeleteColumn?: (columnId: string) => void;
+  onDeleteTask?: (taskId: string) => void;
   isAdmin?: boolean;
 }
 
@@ -30,6 +32,8 @@ export function Column({
   tasks,
   onTaskClick,
   onAddTask,
+  onDeleteColumn,
+  onDeleteTask,
   isAdmin = false,
 }: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
@@ -96,10 +100,13 @@ export function Column({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem>Edit column</DropdownMenuItem>
-              <DropdownMenuItem>Sort tasks</DropdownMenuItem>
+              <DropdownMenuItem disabled>Edit column</DropdownMenuItem>
+              <DropdownMenuItem disabled>Sort tasks</DropdownMenuItem>
               {isAdmin && (
-                <DropdownMenuItem className="text-destructive">
+                <DropdownMenuItem
+                  className="text-destructive"
+                  onClick={() => onDeleteColumn?.(column.id)}
+                >
                   Delete column
                 </DropdownMenuItem>
               )}
@@ -124,6 +131,7 @@ export function Column({
                 key={task.id}
                 task={task}
                 onClick={() => onTaskClick?.(task)}
+                onDelete={isAdmin ? () => onDeleteTask?.(task.id) : undefined}
               />
             ))}
           </SortableContext>

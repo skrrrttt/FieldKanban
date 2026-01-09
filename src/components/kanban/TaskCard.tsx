@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   Flag,
   AlertCircle,
+  Trash2,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -24,6 +25,7 @@ import type { Task, TaskPriority } from "@/types";
 interface TaskCardProps {
   task: Task;
   onClick?: () => void;
+  onDelete?: () => void;
   overlay?: boolean;
 }
 
@@ -77,7 +79,7 @@ function formatDuration(minutes: number): string {
 }
 
 // Memoized to prevent re-renders when parent re-renders
-export const TaskCard = memo(function TaskCard({ task, onClick, overlay = false }: TaskCardProps) {
+export const TaskCard = memo(function TaskCard({ task, onClick, onDelete, overlay = false }: TaskCardProps) {
   const {
     attributes,
     listeners,
@@ -109,7 +111,7 @@ export const TaskCard = memo(function TaskCard({ task, onClick, overlay = false 
       style={style}
       className={cn(
         // Base styles - bordered card
-        "relative border bg-card hover:border-primary/50 transition-all cursor-pointer select-none",
+        "group relative border bg-card hover:border-primary/50 transition-all cursor-pointer select-none",
         // Left border for priority
         "border-l-4",
         config.borderColor,
@@ -136,12 +138,31 @@ export const TaskCard = memo(function TaskCard({ task, onClick, overlay = false 
         <span className="text-[10px]">{config.label}</span>
       </Badge>
 
-      {/* Top Row: Title + Drag Handle */}
-      <div className="flex items-start gap-2 pr-6">
+      {/* Top Row: Title + Actions */}
+      <div className="flex items-start gap-1 pr-6">
         {/* Title */}
         <h4 className="flex-1 font-medium text-sm leading-snug line-clamp-2">
           {task.title}
         </h4>
+
+        {/* Delete button - only shown for admins */}
+        {onDelete && (
+          <button
+            className={cn(
+              "flex-shrink-0 p-2 rounded-lg",
+              "hover:bg-destructive/10 text-muted-foreground hover:text-destructive",
+              "min-w-[36px] min-h-[36px] flex items-center justify-center",
+              "opacity-0 group-hover:opacity-100 transition-opacity"
+            )}
+            aria-label="Delete task"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        )}
 
         {/* Drag Handle - larger touch target */}
         <button

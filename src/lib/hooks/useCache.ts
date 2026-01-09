@@ -1,53 +1,45 @@
 /**
- * Simple in-memory cache hook for API responses
+ * Simple in-memory cache for API responses
  * Reduces redundant API calls for frequently accessed data
+ * Uses module-level singleton to persist across renders
  */
-
-import { useRef, useCallback } from "react";
 
 interface CacheEntry<T> {
   data: T;
   timestamp: number;
 }
 
-interface CacheOptions {
-  ttl?: number; // Time to live in milliseconds (default: 5 minutes)
-}
+// Module-level cache singleton (persists across component renders)
+const globalCache = new Map<string, CacheEntry<unknown>>();
 
-export function useCache<T>(options: CacheOptions = {}) {
-  const { ttl = 5 * 60 * 1000 } = options; // 5 minutes default
-  const cache = useRef<Map<string, CacheEntry<T>>>(new Map());
+const DEFAULT_TTL = 5 * 60 * 1000; // 5 minutes
 
-  const get = useCallback(
-    (key: string): T | null => {
-      const entry = cache.current.get(key);
-      if (!entry) return null;
+export const appCache = {
+  get<T>(key: string, ttl: number = DEFAULT_TTL): T | null {
+    const entry = globalCache.get(key) as CacheEntry<T> | undefined;
+    if (!entry) return null;
 
-      const now = Date.now();
-      if (now - entry.timestamp > ttl) {
-        cache.current.delete(key);
-        return null;
-      }
+    const now = Date.now();
+    if (now - entry.timestamp > ttl) {
+      globalCache.delete(key);
+      return null;
+    }
 
-      return entry.data;
-    },
-    [ttl]
-  );
+    return entry.data;
+  },
 
-  const set = useCallback((key: string, data: T) => {
-    cache.current.set(key, {
+  set<T>(key: string, data: T): void {
+    globalCache.set(key, {
       data,
       timestamp: Date.now(),
     });
-  }, []);
+  },
 
-  const invalidate = useCallback((key: string) => {
-    cache.current.delete(key);
-  }, []);
+  invalidate(key: string): void {
+    globalCache.delete(key);
+  },
 
-  const invalidateAll = useCallback(() => {
-    cache.current.clear();
-  }, []);
-
-  return { get, set, invalidate, invalidateAll };
-}
+  invalidateAll(): void {
+    globalCache.clear();
+  },
+};

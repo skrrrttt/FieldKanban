@@ -9,6 +9,7 @@ import { AddTaskDialog } from "@/components/kanban/AddTaskDialog";
 import { AddColumnDialog } from "@/components/kanban/AddColumnDialog";
 import { useAppStore } from "@/lib/store/app-store";
 import { useRepository } from "@/lib/data/repository-context";
+import { toast } from "sonner";
 import type { Job, Column, Task } from "@/types";
 
 export default function JobBoardPage() {
@@ -110,6 +111,41 @@ export default function JobBoardPage() {
     setAddColumnDialogOpen(true);
   }, []);
 
+  // Handle delete column
+  const handleDeleteColumn = useCallback(
+    async (columnId: string) => {
+      if (!confirm("Are you sure you want to delete this column? All tasks in this column will be deleted.")) {
+        return;
+      }
+
+      const result = await repository.deleteColumn(columnId);
+      if (result.success) {
+        setColumns((prev) => prev.filter((c) => c.id !== columnId));
+        setTasks((prev) => prev.filter((t) => t.columnId !== columnId));
+      } else {
+        console.error("Failed to delete column:", result.error);
+      }
+    },
+    [repository]
+  );
+
+  // Handle delete task
+  const handleDeleteTask = useCallback(
+    async (taskId: string) => {
+      if (!confirm("Are you sure you want to delete this task?")) {
+        return;
+      }
+
+      const result = await repository.deleteTask(taskId);
+      if (result.success) {
+        setTasks((prev) => prev.filter((t) => t.id !== taskId));
+      } else {
+        console.error("Failed to delete task:", result.error);
+      }
+    },
+    [repository]
+  );
+
   // Refresh tasks from repository
   const refreshTasks = useCallback(async () => {
     const result = await repository.getTasks(jobId);
@@ -186,10 +222,18 @@ export default function JobBoardPage() {
 
           {isAdmin && (
             <div className="flex items-center gap-2">
-              <button className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">
+              <button
+                className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                onClick={() => toast.info("Team management coming soon", { description: "Assign users to this job" })}
+                title="Manage team"
+              >
                 <Users className="w-5 h-5" />
               </button>
-              <button className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300">
+              <button
+                className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                onClick={() => toast.info("Job settings coming soon", { description: "Edit job details and columns" })}
+                title="Job settings"
+              >
                 <Settings className="w-5 h-5" />
               </button>
             </div>
@@ -206,6 +250,8 @@ export default function JobBoardPage() {
           onTaskClick={handleTaskClick}
           onAddTask={handleAddTask}
           onAddColumn={handleAddColumn}
+          onDeleteColumn={handleDeleteColumn}
+          onDeleteTask={handleDeleteTask}
           isAdmin={isAdmin}
         />
       </div>

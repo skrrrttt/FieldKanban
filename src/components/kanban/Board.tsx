@@ -24,6 +24,8 @@ interface BoardProps {
   onTaskClick?: (task: Task) => void;
   onAddTask?: (columnId: string) => void;
   onAddColumn?: () => void;
+  onDeleteColumn?: (columnId: string) => void;
+  onDeleteTask?: (taskId: string) => void;
   isAdmin?: boolean;
 }
 
@@ -34,6 +36,8 @@ export function Board({
   onTaskClick,
   onAddTask,
   onAddColumn,
+  onDeleteColumn,
+  onDeleteTask,
   isAdmin = false,
 }: BoardProps) {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
@@ -134,6 +138,8 @@ export function Board({
             tasks={tasksByColumn[column.id] || []}
             onTaskClick={onTaskClick}
             onAddTask={() => onAddTask?.(column.id)}
+            onDeleteColumn={onDeleteColumn}
+            onDeleteTask={onDeleteTask}
             isAdmin={isAdmin}
           />
         ))}
