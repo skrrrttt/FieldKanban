@@ -1,15 +1,19 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, Suspense, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
+// Track processed codes to prevent re-exchange on tab switch
+const processedCodes = new Set<string>();
+
 function CallbackHandler() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [error, setError] = useState<string | null>(null);
+  const isProcessingRef = useRef(false);
 
   useEffect(() => {
     const handleCallback = async () => {
@@ -20,15 +24,40 @@ function CallbackHandler() {
       // Handle errors from Supabase
       if (errorParam) {
         console.error("[Auth Callback] Error from Supabase:", errorParam, errorDescription);
-        router.push(`/login?error=${errorParam}&error_description=${encodeURIComponent(errorDescription || "Authentication failed")}`);
+        router.replace(`/login?error=${errorParam}&error_description=${encodeURIComponent(errorDescription || "Authentication failed")}`);
         return;
       }
 
       if (!code) {
+        // No code - check if user is already authenticated
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          console.log("[Auth Callback] Already authenticated, redirecting to jobs");
+          router.replace("/jobs");
+          return;
+        }
         console.error("[Auth Callback] No code provided");
-        router.push("/login?error=missing_code&error_description=" + encodeURIComponent("Invalid authentication link. Please request a new one."));
+        router.replace("/login?error=missing_code&error_description=" + encodeURIComponent("Invalid authentication link. Please request a new one."));
         return;
       }
+
+      // Prevent processing the same code twice (e.g., on tab switch)
+      if (processedCodes.has(code) || isProcessingRef.current) {
+        console.log("[Auth Callback] Code already processed, checking session...");
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          router.replace("/jobs");
+        } else {
+          router.replace("/login");
+        }
+        return;
+      }
+
+      // Mark as processing
+      isProcessingRef.current = true;
+      processedCodes.add(code);
 
       try {
         console.log("[Auth Callback] Exchanging code for session...");
@@ -38,7 +67,16 @@ function CallbackHandler() {
 
         if (exchangeError) {
           console.error("[Auth Callback] Exchange error:", exchangeError.message);
-          router.push(`/login?error=auth_callback_failed&error_description=${encodeURIComponent(exchangeError.message)}`);
+          // Don't redirect to login with error for PKCE issues - user may already be logged in
+          if (exchangeError.message.includes("PKCE") || exchangeError.message.includes("code verifier")) {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+              console.log("[Auth Callback] PKCE error but user exists, redirecting to jobs");
+              router.replace("/jobs");
+              return;
+            }
+          }
+          router.replace(`/login?error=auth_callback_failed&error_description=${encodeURIComponent(exchangeError.message)}`);
           return;
         }
 
@@ -56,7 +94,7 @@ function CallbackHandler() {
 
         if (!user) {
           console.error("[Auth Callback] No user after session exchange");
-          router.push("/login?error=no_user&error_description=" + encodeURIComponent("Failed to get user session"));
+          router.replace("/login?error=no_user&error_description=" + encodeURIComponent("Failed to get user session"));
           return;
         }
 
@@ -74,24 +112,24 @@ function CallbackHandler() {
         if (intent === "admin") {
           if (userRole === "admin") {
             console.log("[Auth Callback] Admin access granted, redirecting to /admin");
-            router.push("/admin");
+            router.replace("/admin");
           } else {
             console.log("[Auth Callback] Admin access denied for field user");
             toast.error("Access denied", {
               description: "You don't have admin privileges. Contact your administrator.",
             });
-            router.push("/jobs");
+            router.replace("/jobs");
           }
         } else {
           // User intent - always go to jobs
           console.log("[Auth Callback] Redirecting to /jobs");
-          router.push("/jobs");
+          router.replace("/jobs");
         }
       } catch (err) {
         console.error("[Auth Callback] Unexpected error:", err);
         const message = err instanceof Error ? err.message : "An unexpected error occurred";
         setError(message);
-        router.push(`/login?error=unexpected_error&error_description=${encodeURIComponent(message)}`);
+        router.replace(`/login?error=unexpected_error&error_description=${encodeURIComponent(message)}`);
       }
     };
 
