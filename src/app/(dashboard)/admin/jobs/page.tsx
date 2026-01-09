@@ -100,7 +100,7 @@ export default function AdminJobsPage() {
       if (error) throw error;
 
       // Transform the data to include task count
-      const jobsWithCount = (data || []).map((job) => ({
+      const jobsWithCount = (data || []).map((job: Job & { tasks?: { count: number }[] }) => ({
         ...job,
         task_count: job.tasks?.[0]?.count || 0,
       }));

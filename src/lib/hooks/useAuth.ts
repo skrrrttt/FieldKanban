@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { useAppStore } from "@/lib/store/app-store";
 import { clearAllData } from "@/lib/data/local-db";
 import type { User } from "@/types";
@@ -13,6 +14,9 @@ interface UseAuthReturn {
   signOut: () => Promise<void>;
 }
 
+// Track initialization globally to prevent re-init on component remount
+let globalInitialized = false;
+
 export function useAuth(): UseAuthReturn {
   const router = useRouter();
   const currentUser = useAppStore((state) => state.currentUser);
@@ -20,8 +24,12 @@ export function useAuth(): UseAuthReturn {
   const reset = useAppStore((state) => state.reset);
 
   // Only show loading on initial mount when we don't have a user yet
-  const [loading, setLoading] = useState(!currentUser);
+  const [loading, setLoading] = useState(!currentUser && !globalInitialized);
   const initializedRef = useRef(false);
+
+  // Use ref to access current user in callbacks without stale closure
+  const currentUserRef = useRef(currentUser);
+  currentUserRef.current = currentUser;
 
   // Fetch user profile from Supabase
   const fetchProfile = useCallback(
@@ -86,17 +94,19 @@ export function useAuth(): UseAuthReturn {
     // Get initial user - using getUser() validates the session with the server
     // This is more secure than getSession() which only reads from local storage
     const initializeAuth = async () => {
-      // Skip if already initialized or we already have a user in store
-      if (initializedRef.current) {
+      // Skip if already initialized globally or locally
+      if (globalInitialized || initializedRef.current) {
+        console.log("[useAuth] Already initialized, skipping");
         setLoading(false);
         return;
       }
 
-      // If we already have a user in the store, just verify the session
-      if (currentUser) {
+      // If we already have a user in the store, mark as initialized
+      if (currentUserRef.current) {
         console.log("[useAuth] User already in store, skipping full init");
         setLoading(false);
         initializedRef.current = true;
+        globalInitialized = true;
         return;
       }
 
@@ -126,6 +136,7 @@ export function useAuth(): UseAuthReturn {
       } finally {
         setLoading(false);
         initializedRef.current = true;
+        globalInitialized = true;
       }
     };
 
@@ -134,23 +145,30 @@ export function useAuth(): UseAuthReturn {
     // Subscribe to auth state changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event: AuthChangeEvent, session: Session | null) => {
       console.log("[useAuth] Auth state changed:", event);
 
+      // Ignore events if we already have a user (prevents tab-switch issues)
       if (event === "SIGNED_IN" && session?.user) {
-        // Only show loading if we don't already have a user
-        if (!currentUser) {
+        // Only fetch profile if we don't already have the user
+        if (!currentUserRef.current) {
           setLoading(true);
+          await fetchProfile(session.user.id);
+          setLoading(false);
+        } else {
+          console.log("[useAuth] SIGNED_IN but user already exists, skipping");
         }
-        await fetchProfile(session.user.id);
-        setLoading(false);
       } else if (event === "SIGNED_OUT") {
         reset();
         initializedRef.current = false;
+        globalInitialized = false;
         setLoading(false);
       } else if (event === "TOKEN_REFRESHED") {
         // Session refreshed, no action needed - don't change loading state
         console.log("[useAuth] Token refreshed");
+      } else if (event === "INITIAL_SESSION") {
+        // Initial session event on page load - ignore if already initialized
+        console.log("[useAuth] Initial session event, already initialized:", globalInitialized);
       }
     });
 
