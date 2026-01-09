@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Plus, Search, Filter } from "lucide-react";
 import { JobList } from "@/components/jobs";
 import { useAppStore } from "@/lib/store/app-store";
 import { mockRepository } from "@/lib/data/providers/mock";
+import { Button } from "@/components/ui/button";
 import type { Job } from "@/types";
 
 export default function JobsPage() {
@@ -57,10 +59,12 @@ export default function JobsPage() {
           </div>
 
           {isAdmin && (
-            <button className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium">
-              <Plus className="w-4 h-4" />
-              New Job
-            </button>
+            <Button asChild>
+              <Link href="/admin/jobs/new">
+                <Plus className="w-4 h-4 mr-2" />
+                New Job
+              </Link>
+            </Button>
           )}
         </div>
 

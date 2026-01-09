@@ -9,6 +9,7 @@ import {
   Settings,
   LogOut,
   ChevronUp,
+  LayoutDashboard,
 } from "lucide-react";
 import {
   Sidebar,
@@ -44,6 +45,11 @@ const mainNavItems = [
 ];
 
 const adminNavItems = [
+  {
+    title: "Dashboard",
+    url: "/admin",
+    icon: LayoutDashboard,
+  },
   {
     title: "Team",
     url: "/admin/users",
@@ -126,20 +132,27 @@ export function AppSidebar() {
             <SidebarGroupLabel>Admin</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {adminNavItems.map((item) => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={pathname.startsWith(item.url)}
-                      tooltip={item.title}
-                    >
-                      <Link href={item.url}>
-                        <item.icon />
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
+                {adminNavItems.map((item) => {
+                  // Dashboard should only be active on exact /admin path
+                  const isActive = item.url === "/admin"
+                    ? pathname === "/admin"
+                    : pathname.startsWith(item.url);
+
+                  return (
+                    <SidebarMenuItem key={item.title}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={isActive}
+                        tooltip={item.title}
+                      >
+                        <Link href={item.url}>
+                          <item.icon />
+                          <span>{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>

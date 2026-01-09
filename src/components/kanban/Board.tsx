@@ -23,6 +23,7 @@ interface BoardProps {
   onTaskMove?: (taskId: string, columnId: string, newOrder: number) => void;
   onTaskClick?: (task: Task) => void;
   onAddTask?: (columnId: string) => void;
+  onAddColumn?: () => void;
   isAdmin?: boolean;
 }
 
@@ -32,6 +33,7 @@ export function Board({
   onTaskMove,
   onTaskClick,
   onAddTask,
+  onAddColumn,
   isAdmin = false,
 }: BoardProps) {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
@@ -139,7 +141,10 @@ export function Board({
         {/* Add Column button (admin only) */}
         {isAdmin && (
           <div className="flex-shrink-0 w-72">
-            <button className="w-full flex items-center justify-center gap-2 p-4 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:border-slate-400 dark:hover:border-slate-600 transition-colors">
+            <button
+              onClick={onAddColumn}
+              className="w-full flex items-center justify-center gap-2 p-4 border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:border-slate-400 dark:hover:border-slate-600 transition-colors"
+            >
               + Add Column
             </button>
           </div>

@@ -5,8 +5,11 @@ import { useParams } from "next/navigation";
 import { ArrowLeft, Settings, Users } from "lucide-react";
 import Link from "next/link";
 import { Board, TaskDetail } from "@/components/kanban";
+import { AddTaskDialog } from "@/components/kanban/AddTaskDialog";
+import { AddColumnDialog } from "@/components/kanban/AddColumnDialog";
 import { useAppStore } from "@/lib/store/app-store";
 import { mockRepository } from "@/lib/data/providers/mock";
+import { createClient } from "@/lib/supabase/client";
 import type { Job, Column, Task } from "@/types";
 
 export default function JobBoardPage() {
@@ -18,6 +21,13 @@ export default function JobBoardPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+
+  // Add task dialog state
+  const [addTaskDialogOpen, setAddTaskDialogOpen] = useState(false);
+  const [addTaskColumnId, setAddTaskColumnId] = useState<string | null>(null);
+
+  // Add column dialog state
+  const [addColumnDialogOpen, setAddColumnDialogOpen] = useState(false);
 
   const currentUser = useAppStore((state) => state.currentUser);
   const isAdmin = currentUser?.role === "admin";
@@ -89,14 +99,89 @@ export default function JobBoardPage() {
     setSelectedTask(updatedTask);
   }, []);
 
-  // Handle add task
-  const handleAddTask = useCallback(
-    async (columnId: string) => {
-      // For now, just log - would open a modal in real implementation
-      console.log("Add task to column:", columnId);
-    },
-    []
-  );
+  // Handle add task - open the dialog
+  const handleAddTask = useCallback((columnId: string) => {
+    setAddTaskColumnId(columnId);
+    setAddTaskDialogOpen(true);
+  }, []);
+
+  // Handle add column - open the dialog
+  const handleAddColumn = useCallback(() => {
+    setAddColumnDialogOpen(true);
+  }, []);
+
+  // Refresh tasks from Supabase
+  const refreshTasks = useCallback(async () => {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("tasks")
+      .select("*")
+      .eq("job_id", jobId)
+      .order("order", { ascending: true });
+
+    if (error) {
+      console.error("Error refreshing tasks:", error);
+      return;
+    }
+
+    if (data) {
+      // Transform from snake_case to camelCase
+      const transformedTasks: Task[] = data.map((t) => ({
+        id: t.id,
+        jobId: t.job_id,
+        columnId: t.column_id,
+        title: t.title,
+        description: t.description ?? undefined,
+        order: t.order,
+        assignedTo: [], // Would need to fetch from task_assignments
+        dueDate: t.due_date ? new Date(t.due_date) : undefined,
+        createdAt: new Date(t.created_at),
+        createdBy: t.created_by,
+        updatedAt: new Date(t.updated_at),
+        priority: t.priority ?? undefined,
+        location: t.location ?? undefined,
+        duration: t.duration ?? undefined,
+        specReference: t.spec_reference ?? undefined,
+      }));
+
+      // For field users, filter to only their assigned tasks
+      let visibleTasks = transformedTasks;
+      if (!isAdmin && currentUser) {
+        visibleTasks = transformedTasks.filter((t) =>
+          t.assignedTo.includes(currentUser.id)
+        );
+      }
+      setTasks(visibleTasks);
+    }
+  }, [jobId, isAdmin, currentUser]);
+
+  // Refresh columns from Supabase
+  const refreshColumns = useCallback(async () => {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("columns")
+      .select("*")
+      .eq("job_id", jobId)
+      .order("order", { ascending: true });
+
+    if (error) {
+      console.error("Error refreshing columns:", error);
+      return;
+    }
+
+    if (data) {
+      // Transform from snake_case to camelCase
+      const transformedColumns: Column[] = data.map((c) => ({
+        id: c.id,
+        jobId: c.job_id,
+        name: c.name,
+        order: c.order,
+        color: c.color ?? undefined,
+        createdAt: new Date(c.created_at),
+      }));
+      setColumns(transformedColumns);
+    }
+  }, [jobId]);
 
   if (isLoading) {
     return (
@@ -165,6 +250,7 @@ export default function JobBoardPage() {
           onTaskMove={handleTaskMove}
           onTaskClick={handleTaskClick}
           onAddTask={handleAddTask}
+          onAddColumn={handleAddColumn}
           isAdmin={isAdmin}
         />
       </div>
@@ -178,6 +264,27 @@ export default function JobBoardPage() {
           onUpdate={handleTaskUpdate}
         />
       )}
+
+      {/* Add Task Dialog */}
+      {addTaskColumnId && currentUser && (
+        <AddTaskDialog
+          open={addTaskDialogOpen}
+          onOpenChange={setAddTaskDialogOpen}
+          jobId={jobId}
+          columnId={addTaskColumnId}
+          columnName={columns.find((c) => c.id === addTaskColumnId)?.name || "Column"}
+          userId={currentUser.id}
+          onTaskCreated={refreshTasks}
+        />
+      )}
+
+      {/* Add Column Dialog */}
+      <AddColumnDialog
+        open={addColumnDialogOpen}
+        onOpenChange={setAddColumnDialogOpen}
+        jobId={jobId}
+        onColumnCreated={refreshColumns}
+      />
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { useAppStore } from "@/lib/store/app-store";
@@ -14,11 +14,14 @@ interface UseAuthReturn {
 }
 
 export function useAuth(): UseAuthReturn {
-  const [loading, setLoading] = useState(true);
   const router = useRouter();
   const currentUser = useAppStore((state) => state.currentUser);
   const setCurrentUser = useAppStore((state) => state.setCurrentUser);
   const reset = useAppStore((state) => state.reset);
+
+  // Only show loading on initial mount when we don't have a user yet
+  const [loading, setLoading] = useState(!currentUser);
+  const initializedRef = useRef(false);
 
   // Fetch user profile from Supabase
   const fetchProfile = useCallback(
@@ -83,11 +86,30 @@ export function useAuth(): UseAuthReturn {
     // Get initial user - using getUser() validates the session with the server
     // This is more secure than getSession() which only reads from local storage
     const initializeAuth = async () => {
+      // Skip if already initialized or we already have a user in store
+      if (initializedRef.current) {
+        setLoading(false);
+        return;
+      }
+
+      // If we already have a user in the store, just verify the session
+      if (currentUser) {
+        console.log("[useAuth] User already in store, skipping full init");
+        setLoading(false);
+        initializedRef.current = true;
+        return;
+      }
+
       try {
-        const {
-          data: { user },
-          error,
-        } = await supabase.auth.getUser();
+        // Add timeout to prevent hanging
+        const timeoutPromise = new Promise<{ data: { user: null }; error: Error }>((_, reject) =>
+          setTimeout(() => reject(new Error("Auth timeout")), 5000)
+        );
+
+        const authPromise = supabase.auth.getUser();
+        const result = await Promise.race([authPromise, timeoutPromise]);
+
+        const { data: { user }, error } = result;
 
         if (error) {
           console.log("[useAuth] No valid session:", error.message);
@@ -103,6 +125,7 @@ export function useAuth(): UseAuthReturn {
         console.error("[useAuth] Error initializing auth:", err);
       } finally {
         setLoading(false);
+        initializedRef.current = true;
       }
     };
 
@@ -112,21 +135,29 @@ export function useAuth(): UseAuthReturn {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("[useAuth] Auth state changed:", event);
+
       if (event === "SIGNED_IN" && session?.user) {
-        setLoading(true);
+        // Only show loading if we don't already have a user
+        if (!currentUser) {
+          setLoading(true);
+        }
         await fetchProfile(session.user.id);
         setLoading(false);
       } else if (event === "SIGNED_OUT") {
         reset();
+        initializedRef.current = false;
         setLoading(false);
       } else if (event === "TOKEN_REFRESHED") {
-        // Session refreshed, no action needed
+        // Session refreshed, no action needed - don't change loading state
+        console.log("[useAuth] Token refreshed");
       }
     });
 
     return () => {
       subscription.unsubscribe();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchProfile, reset]);
 
   // Sign out function
