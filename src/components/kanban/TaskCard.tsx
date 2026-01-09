@@ -125,25 +125,25 @@ export const TaskCard = memo(function TaskCard({ task, onClick, onDelete, overla
       )}
       onClick={onClick}
     >
-      {/* Priority Badge - Top Right Corner */}
-      <Badge
-        className={cn(
-          "absolute -top-2 -right-2 gap-1",
-          config.badgeBg,
-          config.badgeText,
-          "border-0 shadow-sm"
-        )}
-      >
-        <PriorityIcon className="h-3 w-3" />
-        <span className="text-[10px]">{config.label}</span>
-      </Badge>
-
-      {/* Top Row: Title + Actions */}
-      <div className="flex items-start gap-1 pr-6">
+      {/* Top Row: Title + Priority Badge + Actions */}
+      <div className="flex items-start gap-2">
         {/* Title */}
         <h4 className="flex-1 font-medium text-sm leading-snug line-clamp-2">
           {task.title}
         </h4>
+
+        {/* Priority Badge - inline */}
+        <Badge
+          className={cn(
+            "flex-shrink-0 gap-1 h-5",
+            config.badgeBg,
+            config.badgeText,
+            "border-0"
+          )}
+        >
+          <PriorityIcon className="h-3 w-3" />
+          <span className="text-[10px]">{config.label}</span>
+        </Badge>
 
         {/* Delete button - only shown for admins */}
         {onDelete && (
